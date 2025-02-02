@@ -1,13 +1,14 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
-import Header from './src/components/Header';
-import ButtonFirst from './src/components/buttonFirst';
+import Header from './src/components/Header'; 
+
 
 export default function App() {
   
   const handleBackPress = () => {
     console.log('Botão de voltar pressionado!');
   };
+
   return (
     <View>
       <Header 
@@ -15,7 +16,6 @@ export default function App() {
         onBackPress={handleBackPress} 
         showBackButton={true} 
       />
-        <ButtonFirst name="Clique Aqui" />
       {/* Conteúdo da página */}
     </View>
   );
