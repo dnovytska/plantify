@@ -8,7 +8,7 @@ const WelcomeScreen = () => {
 
   return (
     <View style={styles.container}>
-      <Image source={require("../../assets/plant-logo.png")} style={styles.image}/>
+      <Image source={require("../../assets/images/plant-logo.png")} style={styles.image}/>
       <Text style={styles.text}>Uma frase qualquer apenas porque sim</Text>
       <Text style={styles.title}>Plantify</Text>
 
