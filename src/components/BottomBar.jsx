@@ -1,22 +1,35 @@
 import React from 'react';
 import { TouchableOpacity, View, StyleSheet, Image } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const BottomBar = () => {
+  const navigation = useNavigation();
+
   return (
     <View style={styles.bottomBar}>
-      <TouchableOpacity style={styles.icon}>
+      <TouchableOpacity 
+        style={styles.icon} 
+        onPress={() => navigation.navigate('PlantScreen')}>
         <Image source={require("../../assets/images/many-plants.png")} style={styles.iconContent}></Image>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.icon}>
+      <TouchableOpacity 
+        style={styles.icon} 
+        onPress={() => navigation.navigate('WelcomeScreen')}>
         <Image source={require("../../assets/images/camera.png")} style={styles.iconContent} />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.icon}>
+      <TouchableOpacity 
+        style={styles.icon} 
+        onPress={() => navigation.navigate('WelcomeScreen')}>
         <Image source={require("../../assets/images/home.png")} style={styles.iconContent} />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.icon}>
+      <TouchableOpacity 
+        style={styles.icon} 
+        onPress={() => navigation.navigate('WelcomeScreen')}>
         <Image source={require("../../assets/images/search.png")} style={styles.iconContent} />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.icon}>
+      <TouchableOpacity 
+        style={styles.icon} 
+        onPress={() => navigation.navigate('WelcomeScreen')}>
         <Image source={require("../../assets/images/gear.png")} style={styles.iconContent} />
       </TouchableOpacity>
     </View>
