@@ -9,7 +9,7 @@ import {
 import BottomBar from '../components/BottomBar';
 import LinearGradient from 'react-native-linear-gradient';
 
-export default function App(){
+export default function YouPlantScreen(){
   return (
     <SafeAreaView>
       <ScrollView

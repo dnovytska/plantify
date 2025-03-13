@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import BottomBar from './src/components/BottomBar';  // Ajuste o caminho conforme necessário
-import PlantScreen from './src/screens/PlantScreen';
+import YourPlantScreen from './src/screens/YourPlantScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
+import HomeScreen from './src/screens/HomeScreen'; // Adicionei para evitar erro de navegação
+import YourPlantsScreen from './src/screens/YourPlantsScreen'; // Adicionei para evitar erro de navegação
+import SettingsScreen from './src/screens/SettingsScreen'; // Adicionei para evitar erro de navegação
 import * as Animatable from 'react-native-animatable';
 
 const Stack = createStackNavigator();
@@ -16,34 +19,48 @@ function App() {
         <Stack.Screen
           name="WelcomeScreen"
           component={WelcomeScreen}
-          options={{
-            headerShown: false, // Oculta o cabeçalho padrão
-          }}
+          options={({ navigation }) => ({
+            header: () => <CustomHeader navigation={navigation} />, 
+          })}
         />
         <Stack.Screen 
-          name="PlantScreen" 
-          component={PlantScreen} 
-          options={{
-            header: () => <CustomHeader />, // Define o cabeçalho personalizado
-          }}
+          name="YourPlantScreen" 
+          component={YourPlantScreen} 
+          options={({ navigation }) => ({
+            header: () => <CustomHeader navigation={navigation} />,
+          })}
         />
+        <Stack.Screen 
+          name="SettingsScreen" 
+          component={SettingsScreen} 
+          options={({ navigation }) => ({
+            header: () => <CustomHeader navigation={navigation} />,
+          })}
+        />
+        <Stack.Screen name="HomeScreen" component={HomeScreen} />
+        <Stack.Screen name="Plants" component={YourPlantsScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+
       </Stack.Navigator>
       <BottomBar />
     </NavigationContainer>
   );
 }
 
-const CustomHeader = () => {
-  const [showMenu, setShowMenu] = useState(false);
+const CustomHeader = ({ navigation }) => {
+  const [showMenu, setShowMenu] = useState(false); 
 
   return (
     <View style={styles.headerContainer}>
-      <View style={styles.headerLeft}>
-        <Text style={styles.username}>username</Text>
-        <TouchableOpacity onPress={() => setShowMenu(!showMenu)}>
-          <Text style={styles.arrow}>↓</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity onPress={() => setShowMenu(!showMenu)}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.username}>Username</Text>
+          <Image 
+            source={require("./assets/images/menu.png")} 
+            style={styles.menuIcon} 
+          />
+        </View>
+      </TouchableOpacity>
       {showMenu && (
         <Animatable.View
           style={styles.menuContainer}
@@ -51,9 +68,17 @@ const CustomHeader = () => {
           duration={500}
         >
           <View style={styles.menuOptions}>
-            <Text style={styles.menuOption}>Meu perfil</Text>
-            <Text style={styles.menuOption}>Configurações</Text>
-            <Text style={styles.menuOption}>Sair</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
+              <Text style={styles.menuOption}>Home</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => navigation.navigate('YourPlantsScreen')}>
+              <Text style={styles.menuOption}>Plants</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => navigation.navigate('WelcomeScreen')}>
+              <Text style={styles.menuOption}>Sair</Text>
+            </TouchableOpacity>
           </View>
         </Animatable.View>
       )}
@@ -81,13 +106,14 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
   },
-  arrow: {
-    color: 'white',
-    fontSize: 18,
+  menuIcon: {
+    width: 25,
+    height: 25,
+    tintColor: 'white',
   },
   menuContainer: {
     position: 'absolute',
-    top: 80, // Inicia logo abaixo do cabeçalho
+    top: 80,
     left: 0,
     right: 0,
     backgroundColor: 'rgb(0, 0, 0)',
@@ -97,7 +123,6 @@ const styles = StyleSheet.create({
   },
   menuOptions: {
     backgroundColor: '#468585',
-    borderRadius: 5,
     width: '100%',
     paddingVertical: 20,
     alignItems: 'center',
@@ -106,6 +131,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 18,
     textAlign: 'center',
+    color: 'white',
   },
 });
 
