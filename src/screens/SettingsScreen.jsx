@@ -1,7 +1,11 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 
 const SettingsScreen = () => {
+  const navigation = useNavigation();
+
+  
   return (
     <View style={styles.container}>
       {/* Imagem do perfil */}
@@ -14,7 +18,8 @@ const SettingsScreen = () => {
       <Text style={styles.email}>Email</Text>
 
       {/* Botão de Editar Perfil */}
-      <TouchableOpacity style={styles.editButton}>
+      <TouchableOpacity style={styles.editButton} 
+        onPress={() => navigation.navigate('EditProfileScreen')}>
         <Text style={styles.editButtonText}>Edit Profile</Text>
       </TouchableOpacity>
     </View>

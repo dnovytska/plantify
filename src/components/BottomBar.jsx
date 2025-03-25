@@ -24,7 +24,7 @@ const BottomBar = () => {
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.icon} 
-        onPress={() => navigation.navigate('WelcomeScreen')}>
+        onPress={() => navigation.navigate('SignUpScreen')}>
         <Image source={require("../../assets/images/search.png")} style={styles.iconContent} />
       </TouchableOpacity>
       <TouchableOpacity 
