@@ -1,18 +1,24 @@
 import React, { useState } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, SafeAreaView } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import BottomBar from './src/components/BottomBar';  // Ajuste o caminho conforme necessário
+import BottomBar from './src/components/BottomBar';  
 import YourPlantScreen from './src/screens/YourPlantScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
-import HomeScreen from './src/screens/HomeScreen'; // Adicionei para evitar erro de navegação
-import YourPlantsScreen from './src/screens/YourPlantsScreen'; // Adicionei para evitar erro de navegação
-import SettingsScreen from './src/screens/SettingsScreen'; // Adicionei para evitar erro de navegação
+import HomeScreen from './src/screens/HomeScreen'; 
+import YourPlantsScreen from './src/screens/YourPlantsScreen'; 
+import SettingsScreen from './src/screens/SettingsScreen'
+import EditProfileScreen from './src/screens/EditProfileScreen'
 import * as Animatable from 'react-native-animatable';
+import { setupDatabase } from './src/DB/database';
 
 const Stack = createStackNavigator();
 
 function App() {
+  useEffect(() => {
+    setupDatabase();
+  }, []);
+  
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="WelcomeScreen">
@@ -40,6 +46,7 @@ function App() {
         <Stack.Screen name="HomeScreen" component={HomeScreen} />
         <Stack.Screen name="Plants" component={YourPlantsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
 
       </Stack.Navigator>
       <BottomBar />
@@ -56,7 +63,7 @@ const CustomHeader = ({ navigation }) => {
         <View style={styles.headerLeft}>
           <Text style={styles.username}>Username</Text>
           <Image 
-            source={require("./assets/images/menu.png")} 
+            source={require("./assets/images/arrow.svg")} 
             style={styles.menuIcon} 
           />
         </View>
@@ -78,6 +85,10 @@ const CustomHeader = ({ navigation }) => {
 
             <TouchableOpacity onPress={() => navigation.navigate('WelcomeScreen')}>
               <Text style={styles.menuOption}>Sair</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => navigation.navigate('WelcomeScreen')}>
+              <Text style={styles.menuOption}>Sign UP</Text>
             </TouchableOpacity>
           </View>
         </Animatable.View>
