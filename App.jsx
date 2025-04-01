@@ -1,14 +1,10 @@
 import React, { useState } from 'react';
 import { NavigationContainer, SafeAreaView } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import BottomBar from './src/components/BottomBar';  
-import YourPlantScreen from './src/screens/YourPlantScreen';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import BottomBar from './src/components/BottomBar';  // Ajuste o caminho conforme necessário
+import PlantScreen from './src/screens/PlantScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
-import HomeScreen from './src/screens/HomeScreen'; 
-import YourPlantsScreen from './src/screens/YourPlantsScreen'; 
-import SettingsScreen from './src/screens/SettingsScreen'
-import EditProfileScreen from './src/screens/EditProfileScreen'
 import * as Animatable from 'react-native-animatable';
 import { setupDatabase } from './src/DB/database';
 
@@ -25,16 +21,16 @@ function App() {
         <Stack.Screen
           name="WelcomeScreen"
           component={WelcomeScreen}
-          options={({ navigation }) => ({
-            header: () => <CustomHeader navigation={navigation} />, 
-          })}
+          options={{
+            headerShown: false, // Oculta o cabeçalho padrão
+          }}
         />
         <Stack.Screen 
-          name="YourPlantScreen" 
-          component={YourPlantScreen} 
-          options={({ navigation }) => ({
-            header: () => <CustomHeader navigation={navigation} />,
-          })}
+          name="PlantScreen" 
+          component={PlantScreen} 
+          options={{
+            header: () => <CustomHeader />, // Define o cabeçalho personalizado
+          }}
         />
         <Stack.Screen 
           name="SettingsScreen" 
@@ -54,8 +50,8 @@ function App() {
   );
 }
 
-const CustomHeader = ({ navigation }) => {
-  const [showMenu, setShowMenu] = useState(false); 
+const CustomHeader = () => {
+  const [showMenu, setShowMenu] = useState(false);
 
   return (
     <View style={styles.headerContainer}>
@@ -117,14 +113,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
   },
-  menuIcon: {
-    width: 25,
-    height: 25,
-    tintColor: 'white',
+  arrow: {
+    color: 'white',
+    fontSize: 18,
   },
   menuContainer: {
     position: 'absolute',
-    top: 80,
+    top: 80, // Inicia logo abaixo do cabeçalho
     left: 0,
     right: 0,
     backgroundColor: 'rgb(0, 0, 0)',
@@ -134,6 +129,7 @@ const styles = StyleSheet.create({
   },
   menuOptions: {
     backgroundColor: '#468585',
+    borderRadius: 5,
     width: '100%',
     paddingVertical: 20,
     alignItems: 'center',
@@ -142,7 +138,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 18,
     textAlign: 'center',
-    color: 'white',
   },
 });
 
