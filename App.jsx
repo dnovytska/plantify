@@ -10,14 +10,10 @@ import YourPlantsScreen from './src/screens/YourPlantsScreen';
 import SettingsScreen from './src/screens/SettingsScreen'
 import EditProfileScreen from './src/screens/EditProfileScreen'
 import * as Animatable from 'react-native-animatable';
-import { setupDatabase } from './src/DB/database';
 
 const Stack = createStackNavigator();
 
 function App() {
-  useEffect(() => {
-    setupDatabase();
-  }, []);
   
   return (
     <NavigationContainer>
