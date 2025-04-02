@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Alert } from 'react-native';
-import { login } from '../services/AuthService';
+import { register } from '../services/AuthService';
 
-const LoginScreen = ({ navigation }) => {
+const RegisterScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = async () => {
+  const handleRegister = async () => {
     try {
-      const user = await login(email, password);
-      Alert.alert('Sucesso', 'Login efetuado com sucesso!');
-      // Navegar para a página principal
+      await register(email, password);
+      Alert.alert('Sucesso', 'Registro efetuado com sucesso!');
+      navigation.navigate('Login'); // Navegar para a tela de Login
     } catch (error) {
       Alert.alert('Erro', error.message);
     }
@@ -29,9 +29,9 @@ const LoginScreen = ({ navigation }) => {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <Button title="Login" onPress={handleLogin} />
+      <Button title="Registrar" onPress={handleRegister} />
     </View>
   );
 };
 
-export default LoginScreen;
+export default RegisterScreen;

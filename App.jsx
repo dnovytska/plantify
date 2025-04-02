@@ -6,14 +6,10 @@ import BottomBar from './src/components/BottomBar';  // Ajuste o caminho conform
 import PlantScreen from './src/screens/PlantScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import * as Animatable from 'react-native-animatable';
-import { setupDatabase } from './src/DB/database';
 
 const Stack = createStackNavigator();
 
 function App() {
-  useEffect(() => {
-    setupDatabase();
-  }, []);
   
   return (
     <NavigationContainer>
@@ -38,6 +34,16 @@ function App() {
           options={({ navigation }) => ({
             header: () => <CustomHeader navigation={navigation} />,
           })}
+        />
+        <Stack.Screen 
+          name="LoginScreen" 
+          component={LoginScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="RegisterScreen" 
+          component={RegisterScreen} 
+          options={{ headerShown: false }} 
         />
         <Stack.Screen name="HomeScreen" component={HomeScreen} />
         <Stack.Screen name="Plants" component={YourPlantsScreen} />
