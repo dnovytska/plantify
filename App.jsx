@@ -39,6 +39,16 @@ function App() {
             header: () => <CustomHeader navigation={navigation} />,
           })}
         />
+        <Stack.Screen 
+          name="LoginScreen" 
+          component={LoginScreen} 
+          options={{ headerShown: false }} 
+        />
+        <Stack.Screen 
+          name="RegisterScreen" 
+          component={RegisterScreen} 
+          options={{ headerShown: false }} 
+        />
         <Stack.Screen name="HomeScreen" component={HomeScreen} />
         <Stack.Screen name="Plants" component={YourPlantsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
