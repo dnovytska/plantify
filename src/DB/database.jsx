@@ -1,5 +1,5 @@
 import * as FileSystem from 'expo-file-system';
-import * as SQLite from 'expo-sqlite';
+import { openDatabase as expoOpenDatabase } from 'expo-sqlite';
 import { Asset } from 'expo-asset';
 
 const dbName = 'plantify.db';
@@ -10,43 +10,22 @@ export async function openDatabase() {
     const dbInfo = await FileSystem.getInfoAsync(dbFileUri);
 
     if (!dbInfo.exists) {
-      console.log('Copiando banco de dados...');
+      console.log('📦 Copiando banco de dados para o diretório do app...');
       const asset = Asset.fromModule(require('./plantify.db'));
       await asset.downloadAsync();
-
-      if (!asset.localUri) throw new Error('asset.localUri está vazio!');
 
       await FileSystem.copyAsync({
         from: asset.localUri,
         to: dbFileUri,
       });
-
-      console.log('Banco copiado com sucesso!');
     } else {
-      console.log('Banco já existe.');
+      console.log('✅ Banco de dados já existe.');
     }
 
-    // Abre o banco usando caminho completo
-    const db = SQLite.openDatabase(dbFileUri);
-
-    // Teste: mostra as tabelas do banco
-    db.transaction(tx => {
-      tx.executeSql(
-        "SELECT name FROM sqlite_master WHERE type='table';",
-        [],
-        (_, { rows }) => {
-          console.log('Tabelas existentes no banco:', rows._array);
-        },
-        (_, error) => {
-          console.error('Erro ao listar tabelas:', error);
-          return false;
-        }
-      );
-    });
-
+    const db = expoOpenDatabase(dbName); // <- Agora vai funcionar!
     return db;
   } catch (error) {
-    console.error('Erro ao abrir ou copiar o banco:', error);
+    console.error('❌ Erro ao abrir ou criar o banco de dados:', error);
     throw error;
   }
 }

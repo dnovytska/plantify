@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { openDatabase } from '../DB/database';
 
 export default function RegisterScreen() {
@@ -15,9 +15,10 @@ export default function RegisterScreen() {
       try {
         const database = await openDatabase();
         setDb(database);
-      } catch (err) {
-        console.error('Erro ao abrir banco de dados:', err);
-        Alert.alert('Erro ao abrir banco de dados');
+        console.log('Database prepared successfully');
+      } catch (error) {
+        console.error('Error preparing database:', error);
+        Alert.alert('Error preparing database');
       } finally {
         setLoadingDb(false);
       }
@@ -25,31 +26,14 @@ export default function RegisterScreen() {
     prepareDb();
   }, []);
 
-  useEffect(() => {
-    if (!db) return;
-
-    db.transaction(tx => {
-      tx.executeSql(
-        `CREATE TABLE IF NOT EXISTS users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          username TEXT NOT NULL,
-          email TEXT NOT NULL,
-          full_name TEXT,
-          created_at TEXT NOT NULL,
-          password TEXT NOT NULL
-        );`
-      );
-    });
-  }, [db]);
-
   const handleRegister = () => {
     if (!db) {
-      Alert.alert('Banco de dados ainda não está pronto. Aguarde um momento.');
+      Alert.alert('Database not ready');
       return;
     }
 
     if (!username || !email || !password) {
-      Alert.alert('Preencha os campos obrigatórios!');
+      Alert.alert('Please fill in all required fields');
       return;
     }
 
@@ -61,16 +45,15 @@ export default function RegisterScreen() {
          VALUES (?, ?, ?, ?, ?)`,
         [username, email, fullName, createdAt, password],
         (_, result) => {
-          Alert.alert('Registrado com sucesso!');
+          Alert.alert('Registration successful');
           setUsername('');
           setEmail('');
           setFullName('');
           setPassword('');
         },
         (_, error) => {
-          console.error('Erro ao registrar:', error);
-          Alert.alert('Erro ao registrar');
-          return false;
+          console.error('Registration error:', error);
+          Alert.alert('Registration failed');
         }
       );
     });
@@ -79,19 +62,18 @@ export default function RegisterScreen() {
   if (loadingDb) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#468585" />
-        <Text style={{ marginTop: 10 }}>Preparando banco de dados...</Text>
+        <Text>Preparing database...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Registro de Usuário</Text>
+      <Text style={styles.title}>User Registration</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Nome de usuário"
+        placeholder="Username"
         value={username}
         onChangeText={setUsername}
       />
@@ -103,19 +85,19 @@ export default function RegisterScreen() {
       />
       <TextInput
         style={styles.input}
-        placeholder="Nome completo"
+        placeholder="Full Name"
         value={fullName}
         onChangeText={setFullName}
       />
       <TextInput
         style={styles.input}
-        placeholder="Senha"
+        placeholder="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
 
-      <Button title="Registrar" onPress={handleRegister} />
+      <Button title="Register" onPress={handleRegister} />
     </View>
   );
 }
