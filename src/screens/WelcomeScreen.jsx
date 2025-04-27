@@ -8,13 +8,13 @@ const WelcomeScreen = ({ navigation }) => {
       <View style={styles.buttonContainer}>
         <Button
           title="Login"
-          onPress={() => navigation.navigate('Login')}
+          onPress={() => navigation.navigate('LoginScreen')}
           color="#007AFF"
         />
         <View style={styles.spacer} />
         <Button
           title="Registrar"
-          onPress={() => navigation.navigate('Register')}
+          onPress={() => navigation.navigate('RegisterScreen')}
           color="#34C759"
         />
       </View>

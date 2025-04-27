@@ -1,55 +1,69 @@
-import React, { useState } from 'react';
-import { NavigationContainer, SafeAreaView } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import BottomBar from './src/components/BottomBar';  // Ajuste o caminho conforme necessário
-import PlantScreen from './src/screens/PlantScreen';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import BottomBar from './src/components/BottomBar';  
+import YourPlantScreen from './src/screens/YourPlantScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
+import HomeScreen from './src/screens/HomeScreen'; 
+import YourPlantsScreen from './src/screens/YourPlantsScreen'; 
+import SettingsScreen from './src/screens/SettingsScreen';
+import EditProfileScreen from './src/screens/EditProfileScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import RegisterScreen from './src/screens/RegisterScreen';
 import * as Animatable from 'react-native-animatable';
 
 const Stack = createStackNavigator();
 
 function App() {
-  
+  const [initialRoute, setInitialRoute] = useState(null);
+
+  useEffect(() => {
+    const checkLogin = async () => {
+      try {
+        const user = await AsyncStorage.getItem('user');
+        if (user) {
+          setInitialRoute('HomeScreen');
+        } else {
+          setInitialRoute('RegisterScreen');
+        }
+      } catch (error) {
+        console.error('Erro ao verificar login:', error);
+        setInitialRoute('RegisterScreen');
+      }
+    };
+
+    checkLogin();
+  }, []);
+
+  if (!initialRoute) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#468585" />
+        <Text>Verificando usuário...</Text>
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="WelcomeScreen">
-        <Stack.Screen
-          name="WelcomeScreen"
-          component={WelcomeScreen}
-          options={{
-            headerShown: false, // Oculta o cabeçalho padrão
-          }}
-        />
-        <Stack.Screen 
-          name="PlantScreen" 
-          component={PlantScreen} 
-          options={{
-            header: () => <CustomHeader />, // Define o cabeçalho personalizado
-          }}
-        />
-        <Stack.Screen 
-          name="SettingsScreen" 
-          component={SettingsScreen} 
-          options={({ navigation }) => ({
-            header: () => <CustomHeader navigation={navigation} />,
-          })}
-        />
-        <Stack.Screen 
-          name="LoginScreen" 
-          component={LoginScreen} 
-          options={{ headerShown: false }} 
-        />
-        <Stack.Screen 
-          name="RegisterScreen" 
-          component={RegisterScreen} 
-          options={{ headerShown: false }} 
-        />
+      <Stack.Navigator initialRouteName={initialRoute}>
+        <Stack.Screen name="WelcomeScreen" component={WelcomeScreen} options={({ navigation }) => ({
+          header: () => <CustomHeader navigation={navigation} />,
+        })} />
+        <Stack.Screen name="YourPlantScreen" component={YourPlantScreen} options={({ navigation }) => ({
+          header: () => <CustomHeader navigation={navigation} />,
+        })} />
+        <Stack.Screen name="SettingsScreen" component={SettingsScreen} options={({ navigation }) => ({
+          header: () => <CustomHeader navigation={navigation} />,
+        })} />
+        <Stack.Screen name="LoginScreen" component={LoginScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="RegisterScreen" component={RegisterScreen} options={{ headerShown: false }} />
         <Stack.Screen name="HomeScreen" component={HomeScreen} />
         <Stack.Screen name="Plants" component={YourPlantsScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
-
       </Stack.Navigator>
       <BottomBar />
     </NavigationContainer>
@@ -64,32 +78,22 @@ const CustomHeader = () => {
       <TouchableOpacity onPress={() => setShowMenu(!showMenu)}>
         <View style={styles.headerLeft}>
           <Text style={styles.username}>Username</Text>
-          <Image 
-            source={require("./assets/images/arrow.svg")} 
-            style={styles.menuIcon} 
-          />
+          <Image source={require("./assets/images/arrow.svg")} style={styles.menuIcon} />
         </View>
       </TouchableOpacity>
       {showMenu && (
-        <Animatable.View
-          style={styles.menuContainer}
-          animation="fadeInDown"
-          duration={500}
-        >
+        <Animatable.View style={styles.menuContainer} animation="fadeInDown" duration={500}>
           <View style={styles.menuOptions}>
             <TouchableOpacity onPress={() => navigation.navigate('HomeScreen')}>
               <Text style={styles.menuOption}>Home</Text>
             </TouchableOpacity>
-
             <TouchableOpacity onPress={() => navigation.navigate('YourPlantsScreen')}>
               <Text style={styles.menuOption}>Plants</Text>
             </TouchableOpacity>
-
             <TouchableOpacity onPress={() => navigation.navigate('WelcomeScreen')}>
               <Text style={styles.menuOption}>Sair</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => navigation.navigate('WelcomeScreen')}>
+            <TouchableOpacity onPress={() => navigation.navigate('RegisterScreen')}>
               <Text style={styles.menuOption}>Sign UP</Text>
             </TouchableOpacity>
           </View>
