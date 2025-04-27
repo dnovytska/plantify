@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system';
-import { openDatabase as expoOpenDatabase } from 'expo-sqlite';
 import { Asset } from 'expo-asset';
+import * as SQLite from 'expo-sqlite';
 
 const dbName = 'plantify.db';
 const dbFileUri = FileSystem.documentDirectory + dbName;
@@ -22,7 +22,7 @@ export async function openDatabase() {
       console.log('✅ Banco de dados já existe.');
     }
 
-    const db = expoOpenDatabase(dbName); // <- Agora vai funcionar!
+    const db = SQLite.openDatabaseSync(dbName);
     return db;
   } catch (error) {
     console.error('❌ Erro ao abrir ou criar o banco de dados:', error);

@@ -3,7 +3,7 @@ import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { openDatabase } from '../DB/database';
 
 export default function RegisterScreen() {
-  const [db, setDb] = useState(null);
+  const [databaseInstance, setDatabaseInstance] = useState(null);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
@@ -13,8 +13,9 @@ export default function RegisterScreen() {
   useEffect(() => {
     async function prepareDb() {
       try {
-        const database = await openDatabase();
-        setDb(database);
+        const database = openDatabase();
+        setDatabaseInstance(database);
+        
         console.log('Database prepared successfully');
       } catch (error) {
         console.error('Error preparing database:', error);
@@ -27,23 +28,23 @@ export default function RegisterScreen() {
   }, []);
 
   const handleRegister = () => {
-    if (!db) {
+    if (!databaseInstance) {
       Alert.alert('Database not ready');
       return;
     }
-
-    if (!username || !email || !password) {
+  
+    if (!username.trim() || !email.trim() || !password.trim()) {
       Alert.alert('Please fill in all required fields');
       return;
     }
-
+  
     const createdAt = new Date().toISOString();
-
-    db.transaction(tx => {
+  
+    databaseInstance.transaction(tx => {
       tx.executeSql(
         `INSERT INTO users (username, email, full_name, created_at, password) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [username, email, fullName, createdAt, password],
+        VALUES (?, ?, ?, ?, ?)`,
+        [username.trim(), email.trim(), fullName.trim(), createdAt, password.trim()],
         (_, result) => {
           Alert.alert('Registration successful');
           setUsername('');
