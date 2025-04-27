@@ -70,8 +70,8 @@ function App() {
   );
 }
 
-const CustomHeader = ({ navigation }) => {
-  const [showMenu, setShowMenu] = useState(false); 
+const CustomHeader = () => {
+  const [showMenu, setShowMenu] = useState(false);
 
   return (
     <View style={styles.headerContainer}>
@@ -123,14 +123,13 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
   },
-  menuIcon: {
-    width: 25,
-    height: 25,
-    tintColor: 'white',
+  arrow: {
+    color: 'white',
+    fontSize: 18,
   },
   menuContainer: {
     position: 'absolute',
-    top: 80,
+    top: 80, // Inicia logo abaixo do cabeçalho
     left: 0,
     right: 0,
     backgroundColor: 'rgb(0, 0, 0)',
@@ -140,6 +139,7 @@ const styles = StyleSheet.create({
   },
   menuOptions: {
     backgroundColor: '#468585',
+    borderRadius: 5,
     width: '100%',
     paddingVertical: 20,
     alignItems: 'center',
@@ -148,7 +148,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 18,
     textAlign: 'center',
-    color: 'white',
   },
 });
 

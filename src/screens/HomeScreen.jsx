@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Button from '../components/Button';
-import Title from '../components/Title';
-import PlantCard from '../components/PlantCard';
 
 const HomeScreen = () => {
   const [frame, setFrame] = useState(1);
@@ -12,33 +10,32 @@ const HomeScreen = () => {
   };
 
   return (
-    <View>
-      <Title>Your Plants</Title>
-
-    <ScrollView>
-      <View style={{ padding: 15 }}>
-        <PlantCard
-          image={require('../../assets/images/plant.png')}
-          name="Aloe Vera"
-          type="Succulent"
-          createdAt="Added on Jan 20, 2025"
-        />
-        <PlantCard
-          image={require('../../assets/images/plant.png')} 
-          name="Snake Plant"
-          type="Evergreen"
-          createdAt="Added on Feb 10, 2025"
-        />
-        <PlantCard
-          image={require('../../assets/images/plant.png')} 
-          name="Cactus"
-          type="Desert Plant"
-          createdAt="Added on Mar 1, 2025"
-        />
-      </View>
-    </ScrollView>
+    <View style={styles.container}>
+      {frame === 1 ? (
+        <>
+ <Text style={styles.frameText}>Frame 1: Conteúdo A</Text>
+        </>
+      ) : (
+        <>
+          <Text style={styles.frameText}>Frame 2: Conteúdo B</Text>
+        </>
+      )}
+      <Button title="Mudar Frame" onPress={handleFrameChange} />
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  frameText: {
+    fontSize: 24,
+    marginBottom: 20,
+  },
+});
 
 export default HomeScreen;

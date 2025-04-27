@@ -19,7 +19,7 @@ const BottomBar = () => {
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.icon} 
-        onPress={() => navigation.navigate('HomeScreen')}>
+        onPress={() => navigation.navigate('WelcomeScreen')}>
         <Image source={require("../../assets/images/home.png")} style={styles.iconContent} />
       </TouchableOpacity>
       <TouchableOpacity 
@@ -29,7 +29,7 @@ const BottomBar = () => {
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.icon} 
-        onPress={() => navigation.navigate('SettingsScreen')}>
+        onPress={() => navigation.navigate('WelcomeScreen')}>
         <Image source={require("../../assets/images/gear.png")} style={styles.iconContent} />
       </TouchableOpacity>
     </View>
