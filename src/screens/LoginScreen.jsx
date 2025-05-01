@@ -1,11 +1,14 @@
-import React, { useState, useEffect } from 'react';
+// src/screens/LoginScreen.jsx
+import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
-import { openDatabase } from '../DB/database';
+import { getFirstAsync } from '../DB/database';
 import * as Crypto from 'expo-crypto';
+import { AuthContext } from '../utils/AuthContext';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const { login } = useContext(AuthContext);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -14,12 +17,11 @@ export default function LoginScreen({ navigation }) {
     }
 
     try {
-      const db = await openDatabase();
-      // getFirstAsync retorna o primeiro registro ou undefined
-      const user = await db.getFirstAsync(
+      const user = await getFirstAsync(
         'SELECT * FROM users WHERE email = ? LIMIT 1',
         [email.trim()]
       );
+
       if (!user) {
         Alert.alert('Usuário não encontrado');
         return;
@@ -31,8 +33,8 @@ export default function LoginScreen({ navigation }) {
       );
 
       if (hashed === user.password) {
-        Alert.alert('Login bem-sucedido');
-        // navigation.navigate('HomeScreen');
+        await login(user);
+        // Navegação será tratada automaticamente pelo AuthContext
       } else {
         Alert.alert('Senha inválida');
       }
@@ -50,6 +52,8 @@ export default function LoginScreen({ navigation }) {
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
       />
       <TextInput
         style={styles.input}
@@ -67,6 +71,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, justifyContent: 'center' },
   title: { fontSize: 24, textAlign: 'center', marginBottom: 20 },
   input: {
-    borderWidth: 1, borderRadius: 8, padding: 10, marginBottom: 15,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 15,
   },
 });
