@@ -70,7 +70,7 @@ function App() {
   );
 }
 
-const CustomHeader = () => {
+const CustomHeader = ({ navigation }) => {
   const [showMenu, setShowMenu] = useState(false);
 
   return (
@@ -78,7 +78,7 @@ const CustomHeader = () => {
       <TouchableOpacity onPress={() => setShowMenu(!showMenu)}>
         <View style={styles.headerLeft}>
           <Text style={styles.username}>Username</Text>
-          <Image source={require("./assets/images/arrow.svg")} style={styles.menuIcon} />
+          <Image source={require("./assets/images/menu.png")} style={styles.menuIcon} />
         </View>
       </TouchableOpacity>
       {showMenu && (
@@ -123,13 +123,14 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
   },
-  arrow: {
-    color: 'white',
-    fontSize: 18,
+  menuIcon: {
+    width: 24,
+    height: 24,
+    tintColor: 'white',
   },
   menuContainer: {
     position: 'absolute',
-    top: 80, // Inicia logo abaixo do cabeçalho
+    top: 80,
     left: 0,
     right: 0,
     backgroundColor: 'rgb(0, 0, 0)',

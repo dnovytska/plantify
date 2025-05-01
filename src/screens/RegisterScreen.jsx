@@ -1,6 +1,8 @@
+// src/screens/RegisterScreen.jsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { openDatabase, testDatabase } from '../DB/database';
+import * as Crypto from 'expo-crypto';
 
 export default function RegisterScreen() {
   const [db, setDb] = useState(null);
@@ -14,7 +16,7 @@ export default function RegisterScreen() {
     async function initDb() {
       try {
         const database = await openDatabase();
-        // Create table if not exists using new API
+        // Cria a tabela se não existir
         await database.execAsync(
           `CREATE TABLE IF NOT EXISTS users (
             iduser INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,13 +55,19 @@ export default function RegisterScreen() {
     const createdAt = new Date().toISOString();
 
     try {
+      // Gera o hash da password
+      const hashedPassword = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        password.trim()
+      );
+
       const { lastInsertRowId } = await db.runAsync(
         `INSERT INTO users (username, email, full_name, created_at, password) VALUES (?, ?, ?, ?, ?);`,
         username.trim(),
         email.trim(),
         fullName.trim(),
         createdAt,
-        password.trim()
+        hashedPassword
       );
       console.log('User registered with ID:', lastInsertRowId);
       Alert.alert('Registration successful');

@@ -1,29 +1,59 @@
-import React, { useState } from 'react';
-import { View, TextInput, Button, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
+import { openDatabase } from '../DB/database';
+import * as Crypto from 'expo-crypto';
 
-const LoginScreen = ({ navigation }) => {
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Por favor, preencha todos os campos');
+      return;
+    }
+
     try {
-      const user = await login(email, password);
-      Alert.alert('Sucesso', 'Login efetuado com sucesso!');
-      // Navegar para a página principal
+      const db = await openDatabase();
+      // getFirstAsync retorna o primeiro registro ou undefined
+      const user = await db.getFirstAsync(
+        'SELECT * FROM users WHERE email = ? LIMIT 1',
+        [email.trim()]
+      );
+      if (!user) {
+        Alert.alert('Usuário não encontrado');
+        return;
+      }
+
+      const hashed = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        password.trim()
+      );
+
+      if (hashed === user.password) {
+        Alert.alert('Login bem-sucedido');
+        // navigation.navigate('HomeScreen');
+      } else {
+        Alert.alert('Senha inválida');
+      }
     } catch (error) {
-      Alert.alert('Erro', error.message);
+      console.error('Erro no login:', error);
+      Alert.alert('Falha no login');
     }
   };
 
   return (
-    <View>
+    <View style={styles.container}>
+      <Text style={styles.title}>User Login</Text>
       <TextInput
+        style={styles.input}
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
       />
       <TextInput
-        placeholder="Senha"
+        style={styles.input}
+        placeholder="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
@@ -31,6 +61,12 @@ const LoginScreen = ({ navigation }) => {
       <Button title="Login" onPress={handleLogin} />
     </View>
   );
-};
+}
 
-export default LoginScreen;
+const styles = StyleSheet.create({
+  container: { flex: 1, padding: 20, justifyContent: 'center' },
+  title: { fontSize: 24, textAlign: 'center', marginBottom: 20 },
+  input: {
+    borderWidth: 1, borderRadius: 8, padding: 10, marginBottom: 15,
+  },
+});
