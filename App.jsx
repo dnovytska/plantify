@@ -4,7 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, Text } from 'react-native';
 
-import { AuthProvider, AuthContext } from './src/utils/AuthContext';
+import { AuthProvider, AuthContext } from './src/context/AuthContext';
 
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -14,6 +14,7 @@ import YourPlantsScreen from './src/screens/YourPlantsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import BottomBar from './src/components/BottomBar';
+import HeaderDropdown from './src/components/HeaderDropDown';
 
 const AuthStack = createStackNavigator();
 function AuthNavigator() {
@@ -30,9 +31,14 @@ const AppStack = createStackNavigator();
 function AppNavigator() {
   return (
     <>
-      <AppStack.Navigator screenOptions={{ headerShown: false }}>
+      <AppStack.Navigator
+        screenOptions={{
+          headerRight: () => <HeaderDropdown />,
+          headerTitleAlign: 'center',
+        }}
+      >
         <AppStack.Screen name="Home" component={HomeScreen} />
-        <AppStack.Screen name="Plants" component={YourPlantsScreen} />
+        <AppStack.Screen name="YourPlants" component={YourPlantsScreen} />
         <AppStack.Screen name="Settings" component={SettingsScreen} />
         <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
       </AppStack.Navigator>

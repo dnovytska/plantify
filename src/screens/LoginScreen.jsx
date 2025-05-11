@@ -3,7 +3,7 @@ import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
 import { getFirstAsync } from '../DB/database';
 import * as Crypto from 'expo-crypto';
-import { AuthContext } from '../utils/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
