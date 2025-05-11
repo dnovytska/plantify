@@ -15,6 +15,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import BottomBar from './src/components/BottomBar';
 import HeaderDropdown from './src/components/HeaderDropDown';
+import AddPlantScreen from './src/screens/AddPlantScreen';
 
 const AuthStack = createStackNavigator();
 function AuthNavigator() {
@@ -41,6 +42,7 @@ function AppNavigator() {
         <AppStack.Screen name="YourPlants" component={YourPlantsScreen} />
         <AppStack.Screen name="Settings" component={SettingsScreen} />
         <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
+        <AppStack.Screen name="AddPlant" component={AddPlantScreen} />
       </AppStack.Navigator>
       <BottomBar />
     </>
