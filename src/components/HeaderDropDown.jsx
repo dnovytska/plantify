@@ -11,7 +11,7 @@ import {
 import { AuthContext } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 
-const MENU_HEIGHT = 240; // Ajustei a altura para caber todos os itens confortavelmente
+const MENU_HEIGHT = 280; // Ajustei a altura para caber todos os itens confortavelmente
 
 export default function HeaderDropdown() {
   const [visible, setVisible] = useState(false);
@@ -104,13 +104,13 @@ const styles = StyleSheet.create({
   },
   username: {
     fontSize: 16,
-    color: '#468585', 
+    color: '#2F2182', 
     fontWeight: 'bold',
   },
   arrow: {
     marginLeft: 5,
     fontSize: 12,
-    color: '#468585',
+    color: '#2F2182',
   },
   overlay: {
     flex: 1,
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     top: 0,
     width: '100%',
     height: MENU_HEIGHT,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#50B498',
     paddingVertical: 15,
     paddingHorizontal: 20,
     shadowColor: '#000',
@@ -133,12 +133,12 @@ const styles = StyleSheet.create({
   menuTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#468585',
+    color: '#2F2182',
     marginBottom: 10,
   },
   menuItem: {
     fontSize: 16,
-    color: '#2F2182',
+    color: '#fff',
     paddingVertical: 8,
   },
 });

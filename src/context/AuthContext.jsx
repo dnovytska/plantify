@@ -5,13 +5,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const login = async (userData) => {
     try {
       await AsyncStorage.setItem('user', JSON.stringify(userData));
-      setLoggedIn(true);
+      setUser(userData);
     } catch (error) {
       console.error('Erro ao salvar dados do usuário:', error);
     }
@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await AsyncStorage.removeItem('user');
-      setLoggedIn(false);
+      setUser(null);
     } catch (error) {
       console.error('Erro ao remover dados do usuário:', error);
     }
@@ -28,8 +28,10 @@ export const AuthProvider = ({ children }) => {
 
   const checkLoginStatus = async () => {
     try {
-      const user = await AsyncStorage.getItem('user');
-      setLoggedIn(!!user);
+      const userData = await AsyncStorage.getItem('user');
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
     } catch (error) {
       console.error('Erro ao verificar status de login:', error);
     } finally {
@@ -42,7 +44,13 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ loggedIn, login, logout, isLoading }}>
+    <AuthContext.Provider value={{
+      user,
+      loggedIn: !!user,
+      login,
+      logout,
+      isLoading,
+    }}>
       {children}
     </AuthContext.Provider>
   );

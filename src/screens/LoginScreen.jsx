@@ -34,7 +34,6 @@ export default function LoginScreen({ navigation }) {
 
       if (hashed === user.password) {
         await login(user);
-        // Navegação será tratada automaticamente pelo AuthContext
       } else {
         Alert.alert('Senha inválida');
       }
