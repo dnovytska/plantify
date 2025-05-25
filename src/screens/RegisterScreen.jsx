@@ -1,10 +1,9 @@
-// src/screens/RegisterScreen.jsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
-import { openDatabase, testDatabase } from '../DB/database';
+import * as SQLite from 'expo-sqlite'; // Importar diretamente o expo-sqlite
 import * as Crypto from 'expo-crypto';
 
-export default function RegisterScreen() {
+export default function RegisterScreen({ navigation }) {
   const [db, setDb] = useState(null);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -15,22 +14,21 @@ export default function RegisterScreen() {
   useEffect(() => {
     async function initDb() {
       try {
-        const database = await openDatabase();
+        // Abrir o banco de dados de forma assíncrona
+        const database = await SQLite.openDatabaseAsync('plantify.db');
         // Cria a tabela se não existir
-        await database.execAsync(
-          `CREATE TABLE IF NOT EXISTS users (
+        await database.execAsync(`
+          CREATE TABLE IF NOT EXISTS users (
             iduser INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
-            email TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
             full_name TEXT,
             created_at TEXT NOT NULL,
             password TEXT NOT NULL
-          );`
-        );
+          );
+        `);
         setDb(database);
         console.log('Database prepared successfully');
-        // Chama comando de teste para verificar dados existentes
-        await testDatabase();
       } catch (error) {
         console.error('Error preparing database:', error);
         Alert.alert('Error preparing database');
@@ -52,22 +50,28 @@ export default function RegisterScreen() {
       return;
     }
 
-    const createdAt = new Date().toISOString();
-
     try {
-      // Gera o hash da password
+      // Verificar se o email já está registrado
+      const existingUser = await db.getFirstAsync(
+        'SELECT * FROM users WHERE email = ?',
+        [email.trim()]
+      );
+      if (existingUser) {
+        Alert.alert('Error', 'Email already registered');
+        return;
+      }
+
+      const createdAt = new Date().toISOString();
+
+      // Gera o hash da senha
       const hashedPassword = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
         password.trim()
       );
 
       const { lastInsertRowId } = await db.runAsync(
-        `INSERT INTO users (username, email, full_name, created_at, password) VALUES (?, ?, ?, ?, ?);`,
-        username.trim(),
-        email.trim(),
-        fullName.trim(),
-        createdAt,
-        hashedPassword
+        'INSERT INTO users (username, email, full_name, created_at, password) VALUES (?, ?, ?, ?, ?);',
+        [username.trim(), email.trim(), fullName.trim(), createdAt, hashedPassword]
       );
       console.log('User registered with ID:', lastInsertRowId);
       Alert.alert('Registration successful');
@@ -75,11 +79,13 @@ export default function RegisterScreen() {
       setEmail('');
       setFullName('');
       setPassword('');
-      // Após inserir, testar novamente a base
-      await testDatabase();
+      // Redirecionar para a tela de login (se navigation estiver configurado)
+      if (navigation) {
+        navigation.navigate('Login');
+      }
     } catch (error) {
       console.error('Registration error:', error);
-      Alert.alert('Registration failed');
+      Alert.alert('Registration failed', error.message || 'Unknown error');
     }
   };
 
@@ -106,6 +112,7 @@ export default function RegisterScreen() {
         placeholder="Email"
         value={email}
         onChangeText={setEmail}
+        keyboardType="email-address"
       />
       <TextInput
         style={styles.input}

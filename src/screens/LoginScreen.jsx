@@ -1,7 +1,6 @@
-// src/screens/LoginScreen.jsx
 import React, { useState, useContext } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
-import { getFirstAsync } from '../DB/database';
+import * as SQLite from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
 import { AuthContext } from '../context/AuthContext';
 
@@ -9,6 +8,12 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { login } = useContext(AuthContext);
+
+  const getFirstAsync = async (sql, params = []) => {
+    const db = await SQLite.openDatabaseAsync('plantify.db');
+    const row = await db.getFirstAsync(sql, Array.isArray(params) ? params : [params]);
+    return row ?? null;
+  };
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -33,13 +38,21 @@ export default function LoginScreen({ navigation }) {
       );
 
       if (hashed === user.password) {
-        await login(user);
+        const userData = {
+          id: user.iduser,
+          name: user.full_name || user.username,
+          email: user.email,
+        };
+        await login(userData);
+        // Depuração: Verificar rotas disponíveis
+        console.log('Rotas disponíveis:', navigation.getState()?.routeNames);
+        navigation.replace('SettingsScreen');
       } else {
         Alert.alert('Senha inválida');
       }
     } catch (error) {
       console.error('Erro no login:', error);
-      Alert.alert('Falha no login');
+      Alert.alert('Falha no login', error.message || 'Ocorreu um erro desconhecido');
     }
   };
 

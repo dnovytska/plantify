@@ -1,78 +1,88 @@
-import React from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useContext } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { AuthContext } from '../context/AuthContext';
+import BottomBar from '../components/BottomBar';
 
-const SettingsScreen = () => {
+export default function SettingsScreen() {
+  const { user } = useContext(AuthContext);
   const navigation = useNavigation();
 
-  
+  const handleEditProfile = () => {
+    navigation.navigate('EditProfile');
+  };
+
   return (
     <View style={styles.container}>
-      {/* Imagem do perfil */}
-      <View style={styles.profileContainer}>
-        <Image source={require('../../assets/images/woman.png')} style={styles.profileImage} />
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.avatarContainer}>
+          <Image
+            source={{ uri: 'https://via.placeholder.com/60' }} // Substitua por uma URL de imagem real ou use um estado para a foto
+            style={styles.avatar}
+          />
+          <Text style={styles.addIcon}>+</Text>
+        </TouchableOpacity>
+        <Text style={styles.userName}>{user?.name || 'User Name'}</Text>
+        <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
+        <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
+          <Text style={styles.editButtonText}>Edit Profile</Text>
+        </TouchableOpacity>
       </View>
-
-      {/* Nome e Email */}
-      <Text style={styles.username}>Username</Text>
-      <Text style={styles.email}>Email</Text>
-
-      {/* Botão de Editar Perfil */}
-      <TouchableOpacity style={styles.editButton} 
-        onPress={() => navigation.navigate('EditProfileScreen')}>
-        <Text style={styles.editButtonText}>Edit Profile</Text>
-      </TouchableOpacity>
+      <BottomBar />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  header: {
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 20,
   },
-  profileContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 3,
-    borderColor: '#3D2A6D',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
-    marginBottom: 20,
+  avatarContainer: {
+    position: 'relative',
+    marginBottom: 10,
   },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+  avatar: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#468585',
   },
-  username: {
+  addIcon: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    backgroundColor: '#468585',
+    color: '#fff',
+    width: 20,
+    height: 20,
+    textAlign: 'center',
+    borderRadius: 10,
+    fontSize: 14,
+  },
+  userName: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#5D9C9C',
+    color: '#468585',
     marginBottom: 5,
   },
   email: {
     fontSize: 16,
-    color: '#5D9C9C',
+    color: '#468585',
     marginBottom: 20,
   },
   editButton: {
-    backgroundColor: '#B2B8F5',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 25,
+    backgroundColor: '#B0A8F0',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
   },
   editButtonText: {
-    color: '#3D2A6D',
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    color: '#fff',
+    fontSize: 16,
   },
 });
-
-export default SettingsScreen;

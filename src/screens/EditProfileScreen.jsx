@@ -1,109 +1,139 @@
-import React, { useContext } from "react";
-import { SafeAreaView, View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
-import { AuthContext } from "../context/AuthContext";
-import HeaderDropdown from "../components/HeaderDropDown";
-import BottomBar from "../components/BottomBar";
+import React, { useState, useContext } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { AuthContext } from '../context/AuthContext';
+import BottomBar from '../components/BottomBar';
 
-export default function ProfileScreen({ navigation }) {
-  const { user } = useContext(AuthContext);
+export default function EditProfileScreen() {
+  const { user, login } = useContext(AuthContext); // Para atualizar os dados após salvar
+  const navigation = useNavigation();
+  const [username, setUsername] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [gender, setGender] = useState(user?.gender || 'Male');
+
+  const handleSaveChanges = async () => {
+    const updatedUser = { ...user, name: username, email, gender };
+    await login(updatedUser); // Atualiza o AuthContext com os novos dados
+    navigation.goBack(); // Volta para SettingsScreen
+  };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <HeaderDropdown />
-
-      <Image
-        source={{ uri: "https://images.unsplash.com/photo-1507521628349-6d6f9b7b5b6e" }} // Imagem de fundo (paisagem)
-        style={styles.backgroundImage}
-      />
-
-      <View style={styles.avatarContainer}>
-        <Image
-          source={{ uri: "https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/fqz9itgj.png" }} // Avatar padrão
-          style={styles.avatar}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.avatarContainer}>
+          <Image
+            source={{ uri: 'https://via.placeholder.com/60' }} // Substitua por uma URL de imagem real ou use um estado para a foto
+            style={styles.avatar}
+          />
+          <Text style={styles.addIcon}>+</Text>
+        </TouchableOpacity>
+        <TextInput
+          style={styles.input}
+          value={username}
+          onChangeText={setUsername}
+          placeholder="Username"
+          autoCapitalize="none"
         />
-      </View>
-
-      <View style={styles.infoContainer}>
-        <Text style={styles.username}>{user?.name || "User Name"}</Text>
-        <Text style={styles.email}>{user?.email || "Email"}</Text>
-
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => navigation.navigate("EditProfile")}
-        >
-          <Text style={styles.editButtonText}>Edit Profile</Text>
+        <TextInput
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Email"
+          autoCapitalize="none"
+          keyboardType="email-address"
+        />
+        <View style={styles.genderContainer}>
+          <TouchableOpacity
+            style={[styles.genderButton, gender === 'Male' && styles.genderButtonSelected]}
+            onPress={() => setGender('Male')}
+          >
+            <Text style={styles.genderText}>Male</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.genderButton, gender === 'Female' && styles.genderButtonSelected]}
+            onPress={() => setGender('Female')}
+          >
+            <Text style={styles.genderText}>Female</Text>
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
+          <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
       </View>
-
-      <View style={styles.detailsContainer}>
-        <Text style={styles.detailText}>Name: {user?.name || "John Doe"}</Text>
-        <Text style={styles.detailText}>Email: {user?.email || "johndoe@email.com"}</Text>
-      </View>
-
       <BottomBar />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: '#fff',
+    padding: 20,
   },
-  backgroundImage: {
-    width: "100%",
-    height: "60%", // Ajuste para cobrir a maior parte da tela
-    position: "absolute",
-    top: 0,
-    left: 0,
+  header: {
+    alignItems: 'center',
   },
   avatarContainer: {
-    alignItems: "center",
-    marginTop: 60, // Ajuste para posicionar o avatar sobre a imagem de fundo
+    position: 'relative',
+    marginBottom: 20,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    borderWidth: 3,
-    borderColor: "#468585",
+    borderWidth: 2,
+    borderColor: '#468585',
   },
-  infoContainer: {
-    alignItems: "center",
-    marginTop: 20,
+  addIcon: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    backgroundColor: '#468585',
+    color: '#fff',
+    width: 20,
+    height: 20,
+    textAlign: 'center',
+    borderRadius: 10,
+    fontSize: 14,
   },
-  username: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#2F2182",
-  },
-  email: {
+  input: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#468585',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 15,
     fontSize: 16,
-    color: "#468585",
-    marginBottom: 10,
   },
-  editButton: {
-    backgroundColor: "#E9E9F9",
+  genderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '60%',
+    marginBottom: 20,
+  },
+  genderButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#468585',
+    borderRadius: 20,
+  },
+  genderButtonSelected: {
+    backgroundColor: '#468585',
+  },
+  genderText: {
+    color: '#468585',
+    fontSize: 16,
+  },
+  saveButton: {
+    backgroundColor: '#B0A8F0',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
   },
-  editButtonText: {
+  saveButtonText: {
+    color: '#fff',
     fontSize: 16,
-    color: "#2F2182",
-    fontWeight: "bold",
-  },
-  detailsContainer: {
-    backgroundColor: "#E9E9F9",
-    borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 20,
-    marginTop: 20,
-    alignItems: "center",
-  },
-  detailText: {
-    fontSize: 16,
-    color: "#468585",
-    marginBottom: 5,
   },
 });
