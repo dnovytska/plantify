@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext } from 'react'; // Ensured useContext is imported (no useEffect needed here)
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, Text } from 'react-native';
@@ -36,7 +36,7 @@ const AppContent = ({ navigation }) => (
         headerRight: () => <HeaderDropdown />,
         headerTitleAlign: 'center',
       }}
-      initialRouteName="SettingsScreen"
+      initialRouteName="Home"
     >
       <AppStack.Screen name="Home" component={HomeScreen} />
       <AppStack.Screen name="YourPlants" component={YourPlantsScreen} />
