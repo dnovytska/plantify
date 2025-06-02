@@ -3,6 +3,9 @@
     "name": "Plantify",
     "slug": "Plantify",
     "version": "1.0.0",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -19,15 +22,25 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+        
       },
-      "package": "com.anonymous.Plantify"
+      "package": "com.anonymous.Plantify",
+      "permissions": ["READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-sqlite",
-      "expo-asset"
+      [
+        "expo-asset",
+        {
+          "assets": [
+            "./assets/plantnet/plantnet300K_metadata.json",
+            "./assets/plantnet/plantnet300K_species_id_2_name.json"
+          ]
+        }
+      ]
     ]
   }
 }

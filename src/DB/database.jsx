@@ -1,59 +1,145 @@
-// src/DB/database.js
-import * as SQLite from 'expo-sqlite';
+import React, { useState, useEffect } from "react";
+import { View, Text, TextInput, Button, StyleSheet, Alert } from "react-native";
+import { openDatabase } from "../DB/database"; // Removi testDatabase da importação
+import * as Crypto from "expo-crypto";
 
-/**
- * Abre (ou cria) o banco de dados 'plantify.db' e retorna a instância SQLiteDatabase.
- * @returns {Promise<SQLite.SQLiteDatabase>}
- */
-export async function openDatabase() {
-  // openDatabaseAsync retorna uma Promise<SQLiteDatabase>
-  const db = await SQLite.openDatabaseAsync('plantify.db');
-  return db;
+export default function RegisterScreen({ navigation }) {
+  const [db, setDb] = useState(null);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [password, setPassword] = useState("");
+  const [loadingDb, setLoadingDb] = useState(true);
+
+  useEffect(() => {
+    async function initDb() {
+      try {
+        const database = await openDatabase();
+        // Cria a tabela se não existir
+        await database.execAsync(
+          `CREATE TABLE IF NOT EXISTS users (
+            iduser INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            email TEXT NOT NULL,
+            full_name TEXT,
+            created_at TEXT NOT NULL,
+            password TEXT NOT NULL
+          );`
+        );
+        setDb(database);
+        console.log("Database prepared successfully");
+      } catch (error) {
+        console.error("Error preparing database:", error);
+        Alert.alert("Error preparing database");
+      } finally {
+        setLoadingDb(false);
+      }
+    }
+    initDb();
+  }, []);
+
+  const handleRegister = async () => {
+    if (!db) {
+      Alert.alert("Database not ready");
+      return;
+    }
+
+    if (!username.trim() || !email.trim() || !password.trim()) {
+      Alert.alert("Please fill in all required fields");
+      return;
+    }
+
+    const createdAt = new Date().toISOString();
+
+    try {
+      // Gera o hash da password
+      const hashedPassword = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        password.trim()
+      );
+
+      const { lastInsertRowId } = await db.runAsync(
+        `INSERT INTO users (username, email, full_name, created_at, password) VALUES (?, ?, ?, ?, ?);`,
+        [username.trim(), email.trim(), fullName.trim(), createdAt, hashedPassword]
+      );
+      console.log("User registered with ID:", lastInsertRowId);
+      Alert.alert("Registration successful");
+      setUsername("");
+      setEmail("");
+      setFullName("");
+      setPassword("");
+      // Redirecionar para a tela de login após o registro
+      navigation.navigate("Login");
+    } catch (error) {
+      console.error("Registration error:", error);
+      Alert.alert("Registration failed");
+    }
+  };
+
+  if (loadingDb) {
+    return (
+      <View style={styles.container}>
+        <Text>Preparing database...</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>User Registration</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Username"
+        value={username}
+        onChangeText={setUsername}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Full Name"
+        value={fullName}
+        onChangeText={setFullName}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+
+      <Button title="Register" onPress={handleRegister} />
+    </View>
+  );
 }
 
-/**
- * Retorna o primeiro registro de uma consulta SQL ou null se não houver.
- * @param {string} sql    A string SQL, ex: 'SELECT * FROM users WHERE email = ? LIMIT 1'
- * @param {Array=} params Parâmetros para os placeholders '?' na SQL
- * @returns {Promise<Object|null>}
- */
-export async function getFirstAsync(sql, params = []) {
-  const db = await openDatabase();
-  const row = await db.getFirstAsync(sql, Array.isArray(params) ? params : [params]);
-  // getFirstAsync já retorna undefined se não houver, convertendo para null
-  return row ?? null;
-}
-
-/**
- * Retorna todos os registros de uma consulta SQL como array (pode ser vazio).
- * @param {string} sql    A string SQL, ex: 'SELECT * FROM users'
- * @param {Array=} params Parâmetros para os placeholders '?' na SQL
- * @returns {Promise<Array<Object>>}
- */
-export async function getAllAsync(sql, params = []) {
-  const db = await openDatabase();
-  const rows = await db.getAllAsync(sql, Array.isArray(params) ? params : [params]);
-  return rows;
-}
-
-/**
- * Executa um comando SQL que não retorna linhas (INSERT, UPDATE, DELETE).
- * @param {string} sql    Comando SQL
- * @param {Array=} params Parâmetros para os placeholders '?' na SQL
- * @returns {Promise<void>}
- */
-export async function runAsync(sql, params = []) {
-  const db = await openDatabase();
-  await db.runAsync(sql, Array.isArray(params) ? params : [params]);
-}
-
-/**
- * Executa um batch de comandos SQL.
- * @param {string[]} sqlStatements Lista de comandos SQL
- * @param {Array<Array>=} paramsList Lista de arrays de parâmetros para cada comando
- * @returns {Promise<void>}
- */
-export async function execAsync(sqlStatements, paramsList = []) {
-  const db = await openDatabase();
-  await db.execAsync(sqlStatements, paramsList);
-}
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+    backgroundColor: "#f0fff0",
+  },
+  title: {
+    fontSize: 24,
+    marginBottom: 24,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  input: {
+    height: 50,
+    borderColor: "#aaa",
+    borderWidth: 1,
+    marginBottom: 15,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: "#fff",
+  },
+});

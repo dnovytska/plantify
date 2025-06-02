@@ -1,35 +1,22 @@
 import React from 'react';
 import { TouchableOpacity, View, StyleSheet, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 
-const BottomBar = () => {
-  const navigation = useNavigation();
-
+const BottomBar = ({ navigation }) => {
   return (
     <View style={styles.bottomBar}>
       <TouchableOpacity 
         style={styles.icon} 
-        onPress={() => navigation.navigate('PlantScreen')}>
-        <Image source={require("../../assets/images/many-plants.png")} style={styles.iconContent}></Image>
-      </TouchableOpacity>
-      <TouchableOpacity 
-        style={styles.icon} 
-        onPress={() => navigation.navigate('WelcomeScreen')}>
-        <Image source={require("../../assets/images/camera.png")} style={styles.iconContent} />
-      </TouchableOpacity>
-      <TouchableOpacity 
-        style={styles.icon} 
-        onPress={() => navigation.navigate('WelcomeScreen')}>
+        onPress={() => navigation.navigate('Home')}>
         <Image source={require("../../assets/images/home.png")} style={styles.iconContent} />
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.icon} 
-        onPress={() => navigation.navigate('SignUpScreen')}>
-        <Image source={require("../../assets/images/search.png")} style={styles.iconContent} />
+        onPress={() => navigation.navigate('YourPlants')}>
+        <Image source={require("../../assets/images/many-plants.png")} style={styles.iconContent} />
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.icon} 
-        onPress={() => navigation.navigate('WelcomeScreen')}>
+        onPress={() => navigation.navigate('SettingsScreen')}>
         <Image source={require("../../assets/images/gear.png")} style={styles.iconContent} />
       </TouchableOpacity>
     </View>

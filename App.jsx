@@ -1,5 +1,4 @@
-// App.js
-import React, { useContext } from 'react';
+import React, { useContext } from 'react'; // Ensured useContext is imported (no useEffect needed here)
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { ActivityIndicator, View, Text } from 'react-native';
@@ -13,9 +12,11 @@ import HomeScreen from './src/screens/HomeScreen';
 import YourPlantsScreen from './src/screens/YourPlantsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
-import BottomBar from './src/components/BottomBar';
+import AddPlantScreen from './src/screens/AddPlantScreen';
 import HeaderDropdown from './src/components/HeaderDropDown';
+import BottomBar from './src/components/BottomBar';
 
+// Navegador de autenticação (Welcome, Login, Register)
 const AuthStack = createStackNavigator();
 function AuthNavigator() {
   return (
@@ -27,28 +28,41 @@ function AuthNavigator() {
   );
 }
 
+// Componente wrapper para incluir o BottomBar
+const AppContent = ({ navigation }) => (
+  <>
+    <AppStack.Navigator
+      screenOptions={{
+        headerRight: () => <HeaderDropdown />,
+        headerTitleAlign: 'center',
+      }}
+      initialRouteName="Home"
+    >
+      <AppStack.Screen name="Home" component={HomeScreen} />
+      <AppStack.Screen name="YourPlants" component={YourPlantsScreen} />
+      <AppStack.Screen name="SettingsScreen" component={SettingsScreen} />
+      <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
+      <AppStack.Screen name="AddPlant" component={AddPlantScreen} />
+    </AppStack.Navigator>
+    <BottomBar navigation={navigation} />
+  </>
+);
+
+// Navegador principal
 const AppStack = createStackNavigator();
 function AppNavigator() {
-  return (
-    <>
-      <AppStack.Navigator
-        screenOptions={{
-          headerRight: () => <HeaderDropdown />,
-          headerTitleAlign: 'center',
-        }}
-      >
-        <AppStack.Screen name="Home" component={HomeScreen} />
-        <AppStack.Screen name="YourPlants" component={YourPlantsScreen} />
-        <AppStack.Screen name="Settings" component={SettingsScreen} />
-        <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
-      </AppStack.Navigator>
-      <BottomBar />
-    </>
-  );
+  return <AppContent />;
 }
 
+// Navegador raiz que decide entre autenticação e aplicativo
 function RootNavigator() {
-  const { loggedIn, isLoading } = useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    console.error('AuthContext não está disponível no RootNavigator');
+    return null;
+  }
+
+  const { loggedIn, isLoading } = context;
 
   if (isLoading) {
     return (
@@ -59,6 +73,7 @@ function RootNavigator() {
     );
   }
 
+  console.log('Estado de autenticação:', { loggedIn });
   return (
     <NavigationContainer>
       {loggedIn ? <AppNavigator /> : <AuthNavigator />}
