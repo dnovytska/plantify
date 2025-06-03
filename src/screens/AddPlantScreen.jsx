@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react'; // Ensured useEffect is imported
+import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Modal } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
@@ -45,32 +45,31 @@ export default function AddPlantScreen() {
           return;
         }
 
-        if (!loggedIn || !user || !user.id) {
+        let resolvedUserId = null;
+
+        if (loggedIn && user && user.id) {
+          resolvedUserId = user.id;
+          setCurrentUserId(user.id);
+          console.log('Usuário logado encontrado no AuthContext:', user.id);
+        } else {
           console.log('Nenhum usuário logado ou ID inválido:', { loggedIn, user });
           const storedUser = await AsyncStorage.getItem('user');
           if (storedUser) {
             const parsedUser = JSON.parse(storedUser);
             console.log('Dados do AsyncStorage:', parsedUser);
             if (parsedUser && parsedUser.id) {
+              resolvedUserId = parsedUser.id;
               setCurrentUserId(parsedUser.id);
               console.log('Usuário logado encontrado no AsyncStorage:', parsedUser.id);
-            } else {
-              console.error('ID do usuário não encontrado ou inválido no AsyncStorage:', parsedUser);
-              throw new Error('ID do usuário não encontrado ou inválido no AsyncStorage');
             }
-          } else {
-            console.error('Nenhum usuário encontrado no AsyncStorage');
-            throw new Error('Nenhum usuário encontrado no AsyncStorage');
           }
-        } else {
-          setCurrentUserId(user.id);
-          console.log('Usuário logado encontrado no AuthContext:', user.id);
         }
 
-        if (!currentUserId) {
+        // Só mostra alerta se realmente não encontrou usuário
+        if (!resolvedUserId) {
           Alert.alert(
             'Erro de Autenticação',
-            'Nenhum usuário está logado. Por favor, faça logout e tente novamente.',
+            'Nenhum usuário está logado. Por favor, faça login novamente.',
             [
               {
                 text: 'OK',
@@ -97,12 +96,13 @@ export default function AddPlantScreen() {
       } catch (error) {
         console.error('Erro ao inicializar o banco de dados ou carregar usuário:', error);
         Alert.alert('Erro', `Não foi possível carregar os dados: ${error.message}`);
-        if (error.message.includes('usuário')) {
+        if (error.message && error.message.includes('usuário')) {
           logout();
         }
       }
     };
     initDbAndLoadUser();
+    // eslint-disable-next-line
   }, [isLoading, loggedIn, user, logout]);
 
   useEffect(() => {
