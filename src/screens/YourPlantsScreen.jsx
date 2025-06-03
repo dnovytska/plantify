@@ -34,7 +34,7 @@ export default function PlantListScreen({ navigation }) {
 
       try {
         const userPlants = await database.getAllAsync(
-          `SELECT * FROM plant_acc WHERE users_iduser = ?;`,
+          `SELECT * FROM plants_acc WHERE users_iduser = ?;`,
           [user.id]
         );
         setPlants(userPlants.map((plant) => ({
