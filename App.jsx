@@ -10,6 +10,7 @@ import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import YourPlantsScreen from './src/screens/YourPlantsScreen';
+import PlantScreen from './src/screens/PlantScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import AddPlantScreen from './src/screens/AddPlantScreen';
@@ -43,6 +44,7 @@ const AppContent = ({ navigation }) => (
       <AppStack.Screen name="SettingsScreen" component={SettingsScreen} />
       <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
       <AppStack.Screen name="AddPlant" component={AddPlantScreen} />
+      <AppStack.Screen name="Plant" component={PlantScreen} />
     </AppStack.Navigator>
     <BottomBar navigation={navigation} />
   </>

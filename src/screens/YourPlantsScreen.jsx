@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useContext } from "react";
-import { SafeAreaView, View, ScrollView, Image, Text, Alert } from "react-native";
+import { SafeAreaView, View, ScrollView, Image, Text, Alert, TouchableOpacity } from "react-native";
 import * as SQLite from "expo-sqlite";
 import { AuthContext } from "../context/AuthContext";
+import { useNavigation } from '@react-navigation/native';
+import { openDatabase, initializeDatabase } from "../DB/db"; // Corrigido para minúsculas
 
-// Função para abrir o banco de dados de forma assíncrona
 const openDB = async () => {
   try {
-    const db = await SQLite.openDatabaseAsync("plantify.db");
+    const db = await openDatabase();
     console.log("Banco de dados aberto com sucesso!");
     return db;
   } catch (error) {
@@ -16,45 +17,67 @@ const openDB = async () => {
   }
 };
 
-export default function PlantListScreen({ navigation }) {
+export default function YourPlantsScreen() {
   const [db, setDb] = useState(null);
   const [plants, setPlants] = useState([]);
-  const { user } = useContext(AuthContext); // Obter o usuário logado
+  const { user } = useContext(AuthContext);
+  const navigation = useNavigation();
 
-  // Inicializar o banco de dados e buscar as plantas do usuário
   useEffect(() => {
     const initializeDbAndFetchPlants = async () => {
-      if (!user?.id) {
-        Alert.alert("Erro", "Usuário não autenticado.");
-        return;
+      if (!user || !user.id) {
+        console.log("Usuário não autenticado ou ID não definido:", user);
+        Alert.alert("Erro", "Usuário não autenticado. Faça login novamente.");
+        return; 
       }
 
+      console.log("Usuário logado com ID:", user.id);
+
       const database = await openDB();
+      await initializeDatabase(database);
       setDb(database);
 
       try {
+        console.log("Executando query para buscar plantas do usuário:", user.id);
         const userPlants = await database.getAllAsync(
-          `SELECT * FROM plant_acc WHERE users_iduser = ?;`,
+          `SELECT pa.idplant_acc AS id, pa.name, pt.name AS type, pa.creation_date, pa.image 
+           FROM plants_acc pa 
+           JOIN plants p ON pa.plants_idplant = p.idplant 
+           JOIN plant_types pt ON p.plant_types_idplant_type = pt.idplant_type 
+           WHERE pa.users_iduser = ?`,
           [user.id]
         );
+
+        console.log("Plantas encontradas:", userPlants);
+
         setPlants(userPlants.map((plant) => ({
-          id: plant.idplant_acc,
+          id: plant.id,
           name: plant.name,
-          type: "Plant Type", // Você pode ajustar isso se tiver uma tabela de tipos de plantas
+          type: plant.type || "Plant Type",
           createdAt: new Date(plant.creation_date).toLocaleDateString(),
-          image: plant.image || "https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/820zgqtn.png", // Imagem padrão caso não haja
+          image: plant.image || "https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/820zgqtn.png",
         })));
       } catch (error) {
         console.error("Erro ao buscar plantas:", error);
-        Alert.alert("Erro", "Falha ao carregar as plantas.");
+        Alert.alert("Erro", "Falha ao carregar as plantas: " + error.message);
       }
     };
 
     initializeDbAndFetchPlants().catch((error) => {
       console.error("Erro ao inicializar banco de dados:", error);
-      Alert.alert("Erro", "Falha ao configurar o banco de dados.");
+      Alert.alert("Erro", "Falha ao configurar o banco de dados: " + error.message);
     });
   }, [user]);
+
+  const handlePlantPress = (plantId) => {
+    console.log("Navegando para PlantScreen com plantId:", plantId); // Log para depuração
+    if (!plantId) {
+      console.error("plantId é undefined na navegação!");
+      Alert.alert("Erro", "ID da planta inválido.");
+      return;
+    }
+    navigation.navigate('Plant', { plantId });
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
@@ -69,7 +92,7 @@ export default function PlantListScreen({ navigation }) {
             </Text>
           ) : (
             plants.map((plant) => (
-              <View
+              <TouchableOpacity
                 key={plant.id}
                 style={{
                   flexDirection: "row",
@@ -80,6 +103,7 @@ export default function PlantListScreen({ navigation }) {
                   marginBottom: 10,
                   marginHorizontal: 5,
                 }}
+                onPress={() => handlePlantPress(plant.id)}
               >
                 <Image
                   source={{ uri: plant.image }}
@@ -91,7 +115,7 @@ export default function PlantListScreen({ navigation }) {
                   <Text style={{ color: "#468585", fontSize: 14 }}>{plant.type}</Text>
                   <Text style={{ color: "#468585", fontSize: 12 }}>{plant.createdAt}</Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           )}
         </View>
