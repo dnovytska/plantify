@@ -66,6 +66,20 @@ export const initializeDatabase = async (db) => {
         email TEXT UNIQUE,
         password TEXT
       );
+      CREATE TABLE IF NOT EXISTS tasks_type (
+        IdTaskType INTEGER PRIMARY KEY AUTOINCREMENT,
+        TaskType TEXT
+      );
+      CREATE TABLE IF NOT EXISTS tasks (
+        IdTask INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        due_date TEXT,
+        description TEXT,
+        idplant_acc INTEGER,
+        IdTaskType TEXT,
+        FOREIGN KEY (idplant_acc) REFERENCES plants_acc(idplant_acc),
+        FOREIGN KEY (IdTaskType) REFERENCES tasks_type(IdTaskType)
+      );
     `);
 
     // Inserir dados iniciais para as tabelas de níveis
