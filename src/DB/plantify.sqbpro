@@ -1,45 +1,15 @@
-<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="plantify.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="2124"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="diseases" custom_title="0" dock_id="1" table="4,8:maindiseases"/><dock_state state="000000ff00000000fd00000001000000020000000000000000fc0100000001fb000000160064006f0063006b00420072006f00770073006500310100000000ffffffff0000011800ffffff000000000000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="SQL 1*">CREATE TABLE IF NOT EXISTS watering_levels (
-        id INTEGER,
-        name TEXT NOT NULL UNIQUE,
-        description TEXT,
-        PRIMARY KEY(id AUTOINCREMENT)
-      );
-	  
-	  CREATE TABLE IF NOT EXISTS sunlight_levels (
-        id INTEGER,
-        name TEXT NOT NULL UNIQUE,
-        description TEXT,
-        PRIMARY KEY(id AUTOINCREMENT)
-      );
-	  
-	  CREATE TABLE IF NOT EXISTS growth_rates (
-        id INTEGER,
-        name TEXT NOT NULL UNIQUE,
-        description TEXT,
-        PRIMARY KEY(id AUTOINCREMENT)
-      );
-	  
-	  CREATE TABLE IF NOT EXISTS care_levels (
-        id INTEGER,
-        name TEXT NOT NULL UNIQUE,
-        description TEXT,
-        PRIMARY KEY(id AUTOINCREMENT)
-      );
-	  
-	  
-	  DROP TABLE plant_types;
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="plantify.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="0"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="2704"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="6" parent="0"/><expanded_item id="7" parent="0"/><expanded_item id="8" parent="0"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="care_levels" custom_title="0" dock_id="1" table="4,11:maincare_levels"/><dock_state state="000000ff00000000fd00000001000000020000000000000000fc0100000001fb000000160064006f0063006b00420072006f00770073006500310100000000ffffffff0000011800ffffff000000000000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="SQL 1*">CREATE TABLE IF NOT EXISTS tasks (
+  IdTask INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  due_date TEXT,
+  description TEXT,
+  idplant_acc INTEGER,
+  IdTaskType TEXT,
+  FOREIGN KEY (idplant_acc) REFERENCES plants_acc(idplant_acc),
+  FOREIGN KEY (IdTaskType) REFERENCES tasks_type(IdTaskType)
+);
 
--- Criar a nova tabela com os campos adicionais e chaves estrangeiras
-CREATE TABLE plant_types (
-    idplant_type INTEGER,
-    name TEXT NOT NULL,
-    watering_id INTEGER,
-    sunlight_id INTEGER,
-    growth_rate_id INTEGER,
-    care_level_id INTEGER,
-    PRIMARY KEY (idplant_type AUTOINCREMENT),
-    FOREIGN KEY (watering_id) REFERENCES watering_levels(id),
-    FOREIGN KEY (sunlight_id) REFERENCES sunlight_levels(id),
-    FOREIGN KEY (growth_rate_id) REFERENCES growth_rates(id),
-    FOREIGN KEY (care_level_id) REFERENCES care_levels(id)
+CREATE TABLE IF NOT EXISTS tasks_type (
+  IdTaskType INTEGER PRIMARY KEY AUTOINCREMENT,
+  TaskType TEXT
 );</sql><current_tab id="0"/></tab_sql></sqlb_project>
