@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { SafeAreaView, View, ScrollView, Image, Text, Alert, StyleSheet, TouchableOpacity } from "react-native";
 import * as SQLite from "expo-sqlite";
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native'; // Adicionado useNavigation
 import BottomBar from '../components/BottomBar';
 import { openDatabase, initializeDatabase } from "../DB/db";
 
@@ -19,7 +19,8 @@ const openDB = async () => {
 
 export default function PlantScreen() {
   const route = useRoute();
-  const { plantId } = route.params || {}; // Adicionado fallback para undefined
+  const { plantId } = route.params || {};
+  const navigation = useNavigation(); // Adicionado para navegar para a tela de edição
   const [plant, setPlant] = useState(null);
   const [db, setDb] = useState(null);
   const [activeTab, setActiveTab] = useState('Tasks');
@@ -55,10 +56,10 @@ export default function PlantScreen() {
            FROM plants_acc pa 
            JOIN plants p ON pa.plants_idplant = p.idplant 
            JOIN plant_types pt ON p.plant_types_idplant_type = pt.idplant_type
-           LEFT JOIN watering_levels wl ON pt.watering_id = wl.id 
-           LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.id 
-           LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.id 
-           LEFT JOIN care_levels cl ON pt.care_level_id = cl.id 
+           LEFT JOIN watering_levels wl ON pt.watering_id = wl.id
+           LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.id
+           LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.id
+           LEFT JOIN care_levels cl ON pt.care_level_id = cl.id
            WHERE pa.idplant_acc = ?`,
           [plantId]
         );
@@ -99,6 +100,17 @@ export default function PlantScreen() {
       </SafeAreaView>
     );
   }
+
+  const handleEditPress = () => {
+    if (!plantId) {
+      console.error("plantId undefined ao tentar editar!");
+      Alert.alert("Erro", "ID da planta não disponível.");
+      return;
+    }
+    console.log("Navegando para tela de edição com plantId:", plantId);
+    // Navegar para a tela de edição (você precisa criar essa tela, ex.: EditPlantScreen)
+    navigation.navigate('EditPlantScreen', { plantId });
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -164,6 +176,13 @@ export default function PlantScreen() {
           )}
         </View>
       </ScrollView>
+      {/* Botão de edição flutuante no canto inferior direito */}
+      <TouchableOpacity
+        style={styles.editButton}
+        onPress={handleEditPress}
+      >
+        <Text style={styles.editButtonText}>✏️</Text> {/* Placeholder, substitua por ícone se desejar */}
+      </TouchableOpacity>
       <BottomBar />
     </SafeAreaView>
   );
@@ -173,32 +192,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: "#FFFFFF" },
   scrollView: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 20,
-  },
-  profileIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#468585',
-    marginRight: 10,
-  },
-  userName: {
-    fontSize: 18,
-    color: '#468585',
-    flex: 1,
-  },
-  downArrow: {
-    width: 10,
-    height: 10,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    borderColor: '#468585',
-    transform: [{ rotate: '45deg' }],
-  },
   content: { paddingHorizontal: 20, alignItems: 'center' },
   image: { width: 200, height: 200, borderRadius: 10, marginBottom: 20 },
   title: { fontSize: 24, color: "#468585", fontWeight: 'bold', marginBottom: 10 },
@@ -257,5 +250,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#468585',
     textAlign: 'center',
+  },
+  // Estilo para o botão de edição flutuante
+  editButton: {
+    position: 'absolute',
+    bottom: 80, // Distância do fundo, ajustada para ficar acima do BottomBar
+    right: 20,
+    backgroundColor: '#468585',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5, // Sombra no Android
+    shadowColor: '#000', // Sombra no iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  editButtonText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
