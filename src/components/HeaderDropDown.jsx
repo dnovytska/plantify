@@ -85,6 +85,9 @@ export default function HeaderDropdown() {
             <TouchableOpacity onPress={() => handleNavigate('AddPlant')}>
               <Text style={styles.menuItem}>Adicionar Planta</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => handleNavigate('PlantIdentification')}>
+              <Text style={styles.menuItem}>Identificar Planta</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={handleLogout}>
               <Text style={styles.menuItem}>Sair</Text>
             </TouchableOpacity>
