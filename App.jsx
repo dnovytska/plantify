@@ -15,6 +15,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import EditProfileScreen from './src/screens/EditProfileScreen';
 import AddPlantScreen from './src/screens/AddPlantScreen';
 import EditPlantScreen from './src/screens/EditPlantScreen';
+import PlantIdentificationScreen from './src/screens/PlantIdentificationScreen';
 import HeaderDropdown from './src/components/HeaderDropDown';
 import BottomBar from './src/components/BottomBar';
 
@@ -47,6 +48,7 @@ const AppContent = ({ navigation }) => (
       <AppStack.Screen name="AddPlant" component={AddPlantScreen} />
       <AppStack.Screen name="Plant" component={PlantScreen} />
       <AppStack.Screen name="EditPlantScreen" component={EditPlantScreen} />
+      <AppStack.Screen name="PlantIdentification" component={PlantIdentificationScreen} />
     </AppStack.Navigator>
     <BottomBar navigation={navigation} />
   </>
