@@ -42,7 +42,7 @@ export default function PlantIdentificationScreen() {
     try {
       console.log('Tentando abrir galeria no Expo Go...');
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaType.images,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
@@ -55,13 +55,13 @@ export default function PlantIdentificationScreen() {
         return;
       }
 
-      if (result.assets && result.assets.length > 0) {
-        const uri = result.assets[0].uri; // Acessa assets corretamente
+      if (result.assets && Array.isArray(result.assets) && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
         setImageUri(uri);
         console.log('Imagem selecionada com sucesso, URI:', uri);
       } else {
-        console.log('Nenhum asset retornado, resultado:', result);
-        Alert.alert('Erro', 'A galeria não retornou uma imagem. Verifica se há fotos disponíveis ou reinstala o Expo Go.');
+        console.log('Nenhum asset válido retornado, resultado:', result);
+        Alert.alert('Erro', 'A galeria não retornou uma imagem válida. Verifica se há fotos ou reinstala o Expo Go.');
       }
     } catch (error) {
       console.error('Erro detalhado ao selecionar imagem:', error);
@@ -90,16 +90,16 @@ export default function PlantIdentificationScreen() {
       });
       formData.append('organs', 'auto');
 
-      const response = await axios.post(
-        'https://my-api.plantnet.org/v2/identify/all',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            'Api-Key': PLANTNET_API_KEY,
-          },
-        }
-      );
+const response = await axios.post(
+  `https://my-api.plantnet.org/v2/identify/all?include-related-images=false&no-reject=false&nb-results=10&lang=en&api-key=${PLANTNET_API_KEY}`,
+  formData,
+  { 
+    headers: { 
+      'accept': 'application/json',
+      'Content-Type': 'multipart/form-data',
+    } 
+  }
+);
 
       const results = response.data.results;
       if (results && results.length > 0) {
@@ -110,6 +110,8 @@ export default function PlantIdentificationScreen() {
     } catch (error) {
       console.error('Erro ao identificar planta:', error);
       if (error.response && error.response.status === 401) {
+        console.log("Chave API carregada:", PLANTNET_API_KEY);
+
         Alert.alert('Erro', 'Chave API inválida ou expirada. Verifica a chave no .env.');
       } else {
         Alert.alert('Erro', 'Não foi possível identificar a planta. Verifica a conexão ou a imagem.');

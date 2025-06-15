@@ -1,4 +1,4 @@
-module.exports = function(api) {
+module.exports = function (api) {
   api.cache(true);
   return {
     presets: ['babel-preset-expo'],
@@ -6,7 +6,8 @@ module.exports = function(api) {
       ['module:react-native-dotenv', {
         moduleName: '@env',
         path: '.env',
-      }],
+        allowUndefined: false,
+      }]
     ],
   };
 };
