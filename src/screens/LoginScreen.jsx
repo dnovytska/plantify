@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react'; // Added useEffect to import
+import React, { useState, useEffect, useContext } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { AuthContext } from '../context/AuthContext';
@@ -69,7 +69,7 @@ export default function LoginScreen({ navigation }) {
       if (hashed === user.password) {
         const userData = {
           id: user.iduser,
-          name: user.full_name || user.username,
+          name: user.name || user.username, // Mudado de full_name pra name
           email: user.email,
         };
         console.log('Salvando userData no login:', userData);

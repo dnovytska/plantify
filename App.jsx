@@ -18,6 +18,7 @@ import EditPlantScreen from './src/screens/EditPlantScreen';
 import PlantIdentificationScreen from './src/screens/PlantIdentificationScreen';
 import HeaderDropdown from './src/components/HeaderDropDown';
 import BottomBar from './src/components/BottomBar';
+import CreateTaskScreen from './src/screens/CreateTaskScreen';
 
 // Navegador de autenticação (Welcome, Login, Register)
 const AuthStack = createStackNavigator();
@@ -49,6 +50,7 @@ const AppContent = ({ navigation }) => (
       <AppStack.Screen name="Plant" component={PlantScreen} />
       <AppStack.Screen name="EditPlantScreen" component={EditPlantScreen} />
       <AppStack.Screen name="PlantIdentification" component={PlantIdentificationScreen} />
+      <AppStack.Screen name="CreateTask" component={CreateTaskScreen} />
     </AppStack.Navigator>
     <BottomBar navigation={navigation} />
   </>

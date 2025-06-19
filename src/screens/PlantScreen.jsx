@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { SafeAreaView, View, ScrollView, Image, Text, Alert, StyleSheet, TouchableOpacity } from "react-native";
-import * as SQLite from "expo-sqlite";
-import { useRoute, useNavigation } from '@react-navigation/native'; // Adicionado useNavigation
+import { useRoute, useNavigation } from '@react-navigation/native';
 import BottomBar from '../components/BottomBar';
 import { openDatabase, initializeDatabase } from "../DB/db";
 
@@ -20,20 +19,12 @@ const openDB = async () => {
 export default function PlantScreen() {
   const route = useRoute();
   const { plantId } = route.params || {};
-  const navigation = useNavigation(); // Adicionado para navegar para a tela de edição
+  const navigation = useNavigation();
   const [plant, setPlant] = useState(null);
   const [db, setDb] = useState(null);
   const [activeTab, setActiveTab] = useState('Tasks');
-
-  const tasks = [
-    { id: 1, name: "Regar a planta", dueDate: "2025-06-05" },
-    { id: 2, name: "Adubar", dueDate: "2025-06-10" },
-  ];
-
-  const diseases = [
-    { id: 1, name: "Míldio", description: "Folhas com manchas brancas." },
-    { id: 2, name: "Ferrugem", description: "Pontos laranjas nas folhas." },
-  ];
+  const [tasks, setTasks] = useState([]);
+  const [diseases, setDiseases] = useState([]);
 
   useEffect(() => {
     const fetchPlantDetails = async () => {
@@ -48,19 +39,20 @@ export default function PlantScreen() {
       setDb(database);
 
       try {
+        // Fetch plant details
         console.log("Buscando detalhes da planta com ID:", plantId);
         const plantData = await database.getFirstAsync(
-          `SELECT pa.idplant_acc, pa.name, pa.creation_date, pa.description, pa.image, 
+          `SELECT pa.idplants_acc, pa.name, pa.creation_date, pa.description, pa.image, 
                   pt.name AS type_name, wl.name AS watering_name, sl.name AS sunlight_name, 
                   gr.name AS growth_rate_name, cl.name AS care_level_name 
            FROM plants_acc pa 
-           JOIN plants p ON pa.plants_idplant = p.idplant 
-           JOIN plant_types pt ON p.plant_types_idplant_type = pt.idplant_type
-           LEFT JOIN watering_levels wl ON pt.watering_id = wl.id
-           LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.id
-           LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.id
-           LEFT JOIN care_levels cl ON pt.care_level_id = cl.id
-           WHERE pa.idplant_acc = ?`,
+           JOIN plants p ON pa.idplant = p.idplant 
+           JOIN plant_types pt ON p.plant_type_id = pt.idplant_type
+           LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
+           LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
+           LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
+           LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
+           WHERE pa.idplants_acc = ?`,
           [plantId]
         );
 
@@ -75,15 +67,53 @@ export default function PlantScreen() {
         setPlant({
           id: plantData.idplants_acc,
           name: plantData.name,
-          type: plantData.type_name,
+          type: plantData.type_name || "Unknown",
           createdAt: new Date(plantData.creation_date).toLocaleDateString(),
           description: plantData.description || "Sem descrição",
           image: plantData.image || "https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/820zgqtn.png",
-          watering: plantData.watering_name,
-          sunlight: plantData.sunlight_name,
-          growthRate: plantData.growth_rate_name,
-          careLevel: plantData.care_level_name,
+          watering: plantData.watering_name || "Unknown",
+          sunlight: plantData.sunlight_name || "Unknown",
+          growthRate: plantData.growth_rate_name || "Unknown",
+          careLevel: plantData.care_level_name || "Unknown",
         });
+
+        // Fetch tasks from notifications table
+        const taskData = await database.getAllAsync(
+          `SELECT n.idnotification AS id, n.message AS name, n.due_date, n.is_read,
+                  nt.notification_type
+           FROM notifications n
+           LEFT JOIN notification_types nt ON n.id_notification_type = nt.idnotification_type
+           WHERE n.idplants_acc = ?`,
+          [plantId]
+        );
+
+        console.log("Tarefas encontradas:", taskData);
+
+        setTasks(taskData.map((task) => ({
+          id: task.id,
+          name: task.name,
+          dueDate: task.due_date || "N/A",
+          notificationType: task.notification_type || "Unknown",
+          isRead: task.is_read ? "Read" : "Unread",
+        })));
+
+        // Fetch diseases from diseases_plants_acc and diseases tables
+        const diseaseData = await database.getAllAsync(
+          `SELECT d.id, d.name, d.description
+           FROM diseases_plants_acc dpa
+           JOIN diseases d ON dpa.disease_id = d.id
+           WHERE dpa.plants_acc_id = ?`,
+          [plantId]
+        );
+
+        console.log("Doenças encontradas:", diseaseData);
+
+        setDiseases(diseaseData.map((disease) => ({
+          id: disease.id,
+          name: disease.name,
+          description: disease.description || "Sem descrição",
+        })));
+
       } catch (error) {
         console.error("Erro ao buscar detalhes da planta:", error);
         Alert.alert("Erro", "Falha ao carregar os detalhes da planta: " + error.message);
@@ -93,13 +123,34 @@ export default function PlantScreen() {
     fetchPlantDetails();
   }, [plantId]);
 
-  if (!plant) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <Text style={styles.title}>Carregando...</Text>
-      </SafeAreaView>
+  const handleDeleteTask = async (taskId) => {
+    if (!db) {
+      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja apagar esta tarefa?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await db.runAsync('DELETE FROM notifications WHERE idnotification = ?', [taskId]);
+              setTasks(tasks.filter((task) => task.id !== taskId));
+              Alert.alert('Sucesso', 'Tarefa apagada com sucesso!');
+            } catch (error) {
+              console.error('Erro ao apagar tarefa:', error);
+              Alert.alert('Erro', `Falha ao apagar a tarefa: ${error.message}`);
+            }
+          },
+        },
+      ]
     );
-  }
+  };
 
   const handleEditPress = () => {
     if (!plantId) {
@@ -108,13 +159,24 @@ export default function PlantScreen() {
       return;
     }
     console.log("Navegando para tela de edição com plantId:", plantId);
-    // Navegar para a tela de edição (você precisa criar essa tela, ex.: EditPlantScreen)
     navigation.navigate('EditPlantScreen', { plantId });
   };
 
+  if (!plant) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <Text style={styles.title}>Carregando...</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
         <View style={styles.content}>
           <Image
             source={{ uri: plant.image }}
@@ -145,6 +207,13 @@ export default function PlantScreen() {
             </TouchableOpacity>
           </View>
 
+          <TouchableOpacity
+            style={styles.addTaskButton}
+            onPress={() => navigation.navigate('CreateTask', { plantId })}
+          >
+            <Text style={styles.addTaskButtonText}>Add Task</Text>
+          </TouchableOpacity>
+
           {activeTab === 'Tasks' ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Tarefas</Text>
@@ -152,10 +221,32 @@ export default function PlantScreen() {
                 <Text style={styles.noItems}>Nenhuma tarefa encontrada.</Text>
               ) : (
                 tasks.map((task) => (
-                  <View key={task.id} style={styles.item}>
-                    <Text style={styles.itemName}>{task.name}</Text>
-                    <Text style={styles.itemDetail}>Data: {task.dueDate}</Text>
-                  </View>
+                  <TouchableOpacity
+                    key={task.id}
+                    style={styles.item}
+                    onPress={() => navigation.navigate('TaskDetail', { taskId: task.id, plantId })}
+                  >
+                    <View style={styles.taskContent}>
+                      <Text style={styles.itemName}>{task.name}</Text>
+                      <Text style={styles.itemDetail}>Data: {task.dueDate}</Text>
+                      <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
+                      <Text style={styles.itemDetail}>Status: {task.isRead}</Text>
+                    </View>
+                    <View style={styles.taskActions}>
+                      <TouchableOpacity
+                        style={styles.taskButton}
+                        onPress={() => navigation.navigate('EditTask', { taskId: task.id, plantId })}
+                      >
+                        <Text style={styles.taskButtonText}>✏️</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.taskButton, styles.deleteButton]}
+                        onPress={() => handleDeleteTask(task.id)}
+                      >
+                        <Text style={styles.taskButtonText}>🗑️</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </TouchableOpacity>
                 ))
               )}
             </View>
@@ -176,12 +267,11 @@ export default function PlantScreen() {
           )}
         </View>
       </ScrollView>
-      {/* Botão de edição flutuante no canto inferior direito */}
       <TouchableOpacity
         style={styles.editButton}
         onPress={handleEditPress}
       >
-        <Text style={styles.editButtonText}>✏️</Text> {/* Placeholder, substitua por ícone se desejar */}
+        <Text style={styles.editButtonText}>✏️</Text>
       </TouchableOpacity>
       <BottomBar />
     </SafeAreaView>
@@ -189,13 +279,46 @@ export default function PlantScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: "#FFFFFF" },
-  scrollView: { flex: 1 },
-  content: { paddingHorizontal: 20, alignItems: 'center' },
-  image: { width: 200, height: 200, borderRadius: 10, marginBottom: 20 },
-  title: { fontSize: 24, color: "#468585", fontWeight: 'bold', marginBottom: 10 },
-  detail: { fontSize: 16, color: "#2F2182", marginBottom: 5 },
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: "#FFFFFF",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 100, // Ensure enough padding for BottomBar and edit button
+    alignItems: 'center',
+  },
+  content: {
+    paddingHorizontal: 20,
+    width: '100%',
+    alignItems: 'center',
+  },
+  image: {
+    width: 200,
+    height: 200,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  title: {
+    fontSize: 24,
+    color: "#468585",
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  detail: {
+    fontSize: 16,
+    color: "#2F2182",
+    marginBottom: 5,
+    textAlign: 'center',
+  },
   buttons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -220,9 +343,25 @@ const styles = StyleSheet.create({
   activeButtonText: {
     color: '#FFFFFF',
   },
+  addTaskButton: {
+    backgroundColor: '#468585',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginBottom: 20,
+    width: '100%',
+    alignItems: 'center',
+  },
+  addTaskButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   section: {
     width: '100%',
     marginBottom: 20,
+    // Temporary background for debugging
+    // backgroundColor: '#f0f0f0',
   },
   sectionTitle: {
     fontSize: 20,
@@ -236,6 +375,28 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     marginBottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  taskContent: {
+    flex: 1,
+  },
+  taskActions: {
+    flexDirection: 'row',
+  },
+  taskButton: {
+    backgroundColor: '#468585',
+    padding: 8,
+    borderRadius: 5,
+    marginLeft: 5,
+  },
+  deleteButton: {
+    backgroundColor: '#FF4D4D',
+  },
+  taskButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
   },
   itemName: {
     fontSize: 16,
@@ -251,10 +412,9 @@ const styles = StyleSheet.create({
     color: '#468585',
     textAlign: 'center',
   },
-  // Estilo para o botão de edição flutuante
   editButton: {
     position: 'absolute',
-    bottom: 80, // Distância do fundo, ajustada para ficar acima do BottomBar
+    bottom: 80,
     right: 20,
     backgroundColor: '#468585',
     width: 50,
@@ -262,11 +422,12 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5, // Sombra no Android
-    shadowColor: '#000', // Sombra no iOS
+    elevation: 5,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+    zIndex: 1,
   },
   editButtonText: {
     color: '#FFFFFF',

@@ -3,7 +3,7 @@ import { SafeAreaView, View, ScrollView, Image, Text, Alert, TouchableOpacity } 
 import * as SQLite from "expo-sqlite";
 import { AuthContext } from "../context/AuthContext";
 import { useNavigation } from '@react-navigation/native';
-import { openDatabase, initializeDatabase } from "../DB/db"; // Corrigido para minúsculas
+import { openDatabase, initializeDatabase } from "../DB/db";
 
 const openDB = async () => {
   try {
@@ -40,11 +40,11 @@ export default function YourPlantsScreen() {
       try {
         console.log("Executando query para buscar plantas do usuário:", user.id);
         const userPlants = await database.getAllAsync(
-          `SELECT pa.idplant_acc AS id, pa.name, pt.name AS type, pa.creation_date, pa.image 
+          `SELECT pa.idplants_acc AS id, pa.name, pt.name AS type, pa.creation_date, pa.image 
            FROM plants_acc pa 
-           JOIN plants p ON pa.plants_idplant = p.idplant 
-           JOIN plant_types pt ON p.plant_types_idplant_type = pt.idplant_type 
-           WHERE pa.users_iduser = ?`,
+           JOIN plants p ON pa.idplant = p.idplant 
+           JOIN plant_types pt ON p.plant_type_id = pt.idplant_type 
+           WHERE pa.iduser = ?`,
           [user.id]
         );
 
@@ -70,7 +70,7 @@ export default function YourPlantsScreen() {
   }, [user]);
 
   const handlePlantPress = (plantId) => {
-    console.log("Navegando para PlantScreen com plantId:", plantId); // Log para depuração
+    console.log("Navegando para PlantScreen com plantId:", plantId);
     if (!plantId) {
       console.error("plantId é undefined na navegação!");
       Alert.alert("Erro", "ID da planta inválido.");
