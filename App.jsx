@@ -19,7 +19,17 @@ import PlantIdentificationScreen from './src/screens/PlantIdentificationScreen';
 import HeaderDropdown from './src/components/HeaderDropDown';
 import BottomBar from './src/components/BottomBar';
 import CreateTaskScreen from './src/screens/CreateTaskScreen';
+import EditTaskScreen from './src/screens/EditTaskScreen';
+import TaskScreen from './src/screens/TaskScreen';
+import * as Notifications from 'expo-notifications';
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 // Navegador de autenticação (Welcome, Login, Register)
 const AuthStack = createStackNavigator();
 function AuthNavigator() {
@@ -51,6 +61,8 @@ const AppContent = ({ navigation }) => (
       <AppStack.Screen name="EditPlantScreen" component={EditPlantScreen} />
       <AppStack.Screen name="PlantIdentification" component={PlantIdentificationScreen} />
       <AppStack.Screen name="CreateTask" component={CreateTaskScreen} />
+      <AppStack.Screen name="EditTask" component={EditTaskScreen} />
+      <AppStack.Screen name="Task" component={TaskScreen} />
     </AppStack.Navigator>
     <BottomBar navigation={navigation} />
   </>

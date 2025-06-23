@@ -52,11 +52,11 @@ const scheduleNotification = async (taskId, message, dueDate, notificationType) 
     Alert.alert('Erro', `Falha ao agendar notificação: ${error.message}`);
   }
 };
-export default function CreateTaskScreen() {
+export default function EditTaskScreen() {
   const route = useRoute();
-  const { plantId } = route.params || {};
+  const { taskId, plantId } = route.params || {};
   const navigation = useNavigation();
-  const [selectedPlantId, setSelectedPlantId] = useState(plantId || null);
+  const [selectedPlantId, setSelectedPlantId] = useState(null);
   const [message, setMessage] = useState('');
   const [dueDate, setDueDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -69,9 +69,9 @@ export default function CreateTaskScreen() {
 
   useEffect(() => {
     const initialize = async () => {
-      if (!plantId) {
-        console.error('plantId undefined na CreateTaskScreen!');
-        Alert.alert('Erro', 'ID da planta não fornecido.');
+      if (!taskId || !plantId) {
+        console.error('taskId ou plantId undefined na EditTaskScreen!');
+        Alert.alert('Erro', 'ID da tarefa ou planta não fornecido.');
         return;
       }
 
@@ -79,6 +79,37 @@ export default function CreateTaskScreen() {
         const database = await openDatabase();
         await initializeDatabase(database);
         setDb(database);
+
+        // Load task details
+        const taskData = await database.getFirstAsync(
+          `SELECT n.idnotification, n.idplants_acc, n.message, n.due_date, n.id_notification_type
+           FROM notifications n
+           WHERE n.idnotification = ? AND n.idplants_acc = ?`,
+          [taskId, plantId]
+        );
+
+        if (!taskData) {
+          console.log('Tarefa não encontrada com ID:', taskId);
+          Alert.alert('Erro', 'Tarefa não encontrada.');
+          return;
+        }
+
+        setSelectedPlantId(taskData.idplants_acc);
+        setMessage(taskData.message || '');
+        // Parse due_date correctly
+        if (taskData.due_date) {
+          const dateParts = taskData.due_date.split(' ');
+          if (dateParts.length === 2) {
+            // Format: YYYY-MM-DD HH:MM
+            setDueDate(new Date(`${dateParts[0]}T${dateParts[1]}:00`));
+          } else {
+            // Format: YYYY-MM-DD (sem hora)
+            setDueDate(new Date(`${taskData.due_date}T00:00:00`));
+          }
+        } else {
+          setDueDate(new Date());
+        }
+        setNotificationTypeId(taskData.id_notification_type || null);
 
         // Load plants
         const plantData = await database.getAllAsync(
@@ -94,13 +125,13 @@ export default function CreateTaskScreen() {
 
         setIsDataLoaded(true);
       } catch (error) {
-        console.error('Erro ao inicializar CreateTaskScreen:', error);
+        console.error('Erro ao inicializar EditTaskScreen:', error);
         Alert.alert('Erro', `Falha ao carregar dados: ${error.message}`);
       }
     };
 
     initialize();
-  }, [plantId]);
+  }, [taskId, plantId]);
 
   const scheduleNotification = async (taskId, message, dueDate, notificationType) => {
     const permission = await Notifications.getPermissionsAsync();
@@ -111,6 +142,9 @@ export default function CreateTaskScreen() {
         return;
       }
     }
+
+    // Cancel existing notification
+    await Notifications.cancelScheduledNotificationAsync(taskId.toString());
 
     const trigger = new Date(dueDate);
     if (trigger < new Date()) {
@@ -129,7 +163,7 @@ export default function CreateTaskScreen() {
 
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: 'Lembrete de Tarefa',
+        title: 'Task Reminder',
         body: message,
       },
       trigger: repeat
@@ -165,27 +199,27 @@ export default function CreateTaskScreen() {
       const minutes = String(dueDate.getMinutes()).padStart(2, '0');
       const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
 
-      const result = await db.runAsync(
-        `INSERT INTO notifications (idplants_acc, message, due_date, id_notification_type, is_read)
-         VALUES (?, ?, ?, ?, ?)`,
-        [selectedPlantId, message.trim(), formattedDate, notificationTypeId, 0]
-      );
-
-      const newTaskId = result.lastInsertRowId;
       const typeData = notificationTypes.find(type => type.idnotification_type === notificationTypeId);
       const notificationType = typeData ? typeData.notification_type : 'Única';
 
-      await scheduleNotification(newTaskId, message.trim(), dueDate, notificationType);
+      await db.runAsync(
+        `UPDATE notifications
+         SET idplants_acc = ?, message = ?, due_date = ?, id_notification_type = ?
+         WHERE idnotification = ?`,
+        [selectedPlantId, message.trim(), formattedDate, notificationTypeId, taskId]
+      );
 
-      Alert.alert('Sucesso', 'Tarefa criada com sucesso!', [
+      await scheduleNotification(taskId, message.trim(), dueDate, notificationType);
+
+      Alert.alert('Sucesso', 'Tarefa atualizada com sucesso!', [
         {
           text: 'OK',
           onPress: () => navigation.goBack(),
         },
       ]);
     } catch (error) {
-      console.error('Erro ao criar tarefa:', error);
-      Alert.alert('Erro', `Falha ao criar a tarefa: ${error.message}`);
+      console.error('Erro ao salvar tarefa:', error);
+      Alert.alert('Erro', `Falha ao salvar a tarefa: ${error.message}`);
     }
   };
 
@@ -234,7 +268,7 @@ export default function CreateTaskScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <Text style={styles.title}>Criar Tarefa</Text>
+        <Text style={styles.title}>Editar Tarefa</Text>
 
         <Text style={styles.sectionTitle}>Selecionar Planta</Text>
         {plants.length === 0 ? (
@@ -318,22 +352,9 @@ export default function CreateTaskScreen() {
             onChange={onTimeChange}
           />
         )}
-<TouchableOpacity style={styles.saveButton} onPress={async () => {
-  try {
-    await Notifications.scheduleNotificationAsync({
-      content: { title: 'Teste', body: 'Notificação de teste!' },
-      trigger: { seconds: 5 },
-    });
-    Alert.alert('Teste', 'Notificação agendada para 5 segundos.');
-  } catch (error) {
-    console.error('Erro ao agendar notificação de teste:', error);
-    Alert.alert('Erro', `Falha no teste: ${error.message}`);
-  }
-}}>
-  <Text style={styles.saveButtonText}>Testar Notificação</Text>
-</TouchableOpacity>
+
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Criar Tarefa</Text>
+          <Text style={styles.saveButtonText}>Salvar Tarefa</Text>
         </TouchableOpacity>
       </ScrollView>
       <BottomBar />

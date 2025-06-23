@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { SafeAreaView, View, ScrollView, Image, Text, Alert, StyleSheet, TouchableOpacity } from "react-native";
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import BottomBar from '../components/BottomBar';
 import { openDatabase, initializeDatabase } from "../DB/db";
 
@@ -26,102 +26,113 @@ export default function PlantScreen() {
   const [tasks, setTasks] = useState([]);
   const [diseases, setDiseases] = useState([]);
 
-  useEffect(() => {
-    const fetchPlantDetails = async () => {
-      if (!plantId) {
-        console.error("plantId é undefined na PlantScreen!");
-        Alert.alert("Erro", "ID da planta não fornecido.");
+  const fetchPlantDetails = useCallback(async () => {
+    if (!plantId) {
+      console.error("plantId é undefined na PlantScreen!");
+      Alert.alert("Erro", "ID da planta não fornecido.");
+      return;
+    }
+
+    const database = await openDB();
+    await initializeDatabase(database);
+    setDb(database);
+
+    try {
+      // Fetch plant details
+      console.log("Buscando detalhes da planta com ID:", plantId);
+      const plantData = await database.getFirstAsync(
+        `SELECT pa.idplants_acc, pa.name, pa.creation_date, pa.description, pa.image, 
+                pt.name AS type_name, wl.name AS watering_name, sl.name AS sunlight_name, 
+                gr.name AS growth_rate_name, cl.name AS care_level_name 
+         FROM plants_acc pa 
+         JOIN plants p ON pa.idplant = p.idplant 
+         JOIN plant_types pt ON p.plant_type_id = pt.idplant_type
+         LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
+         LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
+         LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
+         LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
+         WHERE pa.idplants_acc = ?`,
+        [plantId]
+      );
+
+      if (!plantData) {
+        console.log("Planta não encontrada com ID:", plantId);
+        Alert.alert("Erro", "Planta não encontrada.");
         return;
       }
 
-      const database = await openDB();
-      await initializeDatabase(database);
-      setDb(database);
+      console.log("Dados da planta encontrados:", plantData);
 
-      try {
-        // Fetch plant details
-        console.log("Buscando detalhes da planta com ID:", plantId);
-        const plantData = await database.getFirstAsync(
-          `SELECT pa.idplants_acc, pa.name, pa.creation_date, pa.description, pa.image, 
-                  pt.name AS type_name, wl.name AS watering_name, sl.name AS sunlight_name, 
-                  gr.name AS growth_rate_name, cl.name AS care_level_name 
-           FROM plants_acc pa 
-           JOIN plants p ON pa.idplant = p.idplant 
-           JOIN plant_types pt ON p.plant_type_id = pt.idplant_type
-           LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
-           LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
-           LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
-           LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
-           WHERE pa.idplants_acc = ?`,
-          [plantId]
-        );
+      setPlant({
+        id: plantData.idplants_acc,
+        name: plantData.name,
+        type: plantData.type_name || "Unknown",
+        createdAt: new Date(plantData.creation_date).toLocaleDateString(),
+        description: plantData.description || "Sem descrição",
+        image: plantData.image || "https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/820zgqtn.png",
+        watering: plantData.watering_name || "Unknown",
+        sunlight: plantData.sunlight_name || "Unknown",
+        growthRate: plantData.growth_rate_name || "Unknown",
+        careLevel: plantData.care_level_name || "Unknown",
+      });
 
-        if (!plantData) {
-          console.log("Planta não encontrada com ID:", plantId);
-          Alert.alert("Erro", "Planta não encontrada.");
-          return;
-        }
+      // Fetch tasks from notifications table
+      const taskData = await database.getAllAsync(
+        `SELECT n.idnotification AS id, n.message AS name, n.due_date, n.is_read,
+                nt.notification_type
+         FROM notifications n
+         LEFT JOIN notification_types nt ON n.id_notification_type = nt.idnotification_type
+         WHERE n.idplants_acc = ?`,
+        [plantId]
+      );
 
-        console.log("Dados da planta encontrados:", plantData);
+      console.log("Tarefas encontradas:", taskData);
 
-        setPlant({
-          id: plantData.idplants_acc,
-          name: plantData.name,
-          type: plantData.type_name || "Unknown",
-          createdAt: new Date(plantData.creation_date).toLocaleDateString(),
-          description: plantData.description || "Sem descrição",
-          image: plantData.image || "https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/820zgqtn.png",
-          watering: plantData.watering_name || "Unknown",
-          sunlight: plantData.sunlight_name || "Unknown",
-          growthRate: plantData.growth_rate_name || "Unknown",
-          careLevel: plantData.care_level_name || "Unknown",
-        });
+      setTasks(taskData.map((task) => ({
+        id: task.id,
+        name: task.name,
+        // Ajustar exibição de due_date
+        dueDate: task.due_date
+          ? task.due_date.includes(' ')
+            ? task.due_date // Formato com hora: YYYY-MM-DD HH:MM
+            : `${task.due_date} 00:00` // Formato sem hora: adicionar 00:00
+          : "N/A",
+        notificationType: task.notification_type || "Unknown",
+        isRead: task.is_read ? "Lida" : "Não lida",
+      })));
 
-        // Fetch tasks from notifications table
-        const taskData = await database.getAllAsync(
-          `SELECT n.idnotification AS id, n.message AS name, n.due_date, n.is_read,
-                  nt.notification_type
-           FROM notifications n
-           LEFT JOIN notification_types nt ON n.id_notification_type = nt.idnotification_type
-           WHERE n.idplants_acc = ?`,
-          [plantId]
-        );
+      // Fetch diseases from diseases_plants_acc and diseases tables
+      const diseaseData = await database.getAllAsync(
+        `SELECT d.id, d.name, d.description
+         FROM diseases_plants_acc dpa
+         JOIN diseases d ON dpa.disease_id = d.id
+         WHERE dpa.plants_acc_id = ?`,
+        [plantId]
+      );
 
-        console.log("Tarefas encontradas:", taskData);
+      console.log("Doenças encontradas:", diseaseData);
 
-        setTasks(taskData.map((task) => ({
-          id: task.id,
-          name: task.name,
-          dueDate: task.due_date || "N/A",
-          notificationType: task.notification_type || "Unknown",
-          isRead: task.is_read ? "Read" : "Unread",
-        })));
+      setDiseases(diseaseData.map((disease) => ({
+        id: disease.id,
+        name: disease.name,
+        description: disease.description || "Sem descrição",
+      })));
 
-        // Fetch diseases from diseases_plants_acc and diseases tables
-        const diseaseData = await database.getAllAsync(
-          `SELECT d.id, d.name, d.description
-           FROM diseases_plants_acc dpa
-           JOIN diseases d ON dpa.disease_id = d.id
-           WHERE dpa.plants_acc_id = ?`,
-          [plantId]
-        );
-
-        console.log("Doenças encontradas:", diseaseData);
-
-        setDiseases(diseaseData.map((disease) => ({
-          id: disease.id,
-          name: disease.name,
-          description: disease.description || "Sem descrição",
-        })));
-
-      } catch (error) {
-        console.error("Erro ao buscar detalhes da planta:", error);
-        Alert.alert("Erro", "Falha ao carregar os detalhes da planta: " + error.message);
-      }
-    };
-
-    fetchPlantDetails();
+    } catch (error) {
+      console.error("Erro ao buscar detalhes da planta:", error);
+      Alert.alert("Erro", "Falha ao carregar os detalhes da planta: " + error.message);
+    }
   }, [plantId]);
+
+  useEffect(() => {
+    fetchPlantDetails();
+  }, [fetchPlantDetails]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPlantDetails();
+    }, [fetchPlantDetails])
+  );
 
   const handleDeleteTask = async (taskId) => {
     if (!db) {
@@ -139,8 +150,9 @@ export default function PlantScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              await Notifications.cancelScheduledNotificationAsync(taskId.toString());
               await db.runAsync('DELETE FROM notifications WHERE idnotification = ?', [taskId]);
-              setTasks(tasks.filter((task) => task.id !== taskId));
+              await fetchPlantDetails();
               Alert.alert('Sucesso', 'Tarefa apagada com sucesso!');
             } catch (error) {
               console.error('Erro ao apagar tarefa:', error);
@@ -164,7 +176,7 @@ export default function PlantScreen() {
 
   if (!plant) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={styles.container}>
         <Text style={styles.title}>Carregando...</Text>
       </SafeAreaView>
     );
@@ -197,13 +209,13 @@ export default function PlantScreen() {
               style={[styles.button, activeTab === 'Tasks' && styles.activeButton]}
               onPress={() => setActiveTab('Tasks')}
             >
-              <Text style={[styles.buttonText, activeTab === 'Tasks' && styles.activeButtonText]}>Tasks</Text>
+              <Text style={[styles.buttonText, activeTab === 'Tasks' && styles.activeButtonText]}>Tarefas</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, activeTab === 'Diseases' && styles.activeButton]}
               onPress={() => setActiveTab('Diseases')}
             >
-              <Text style={[styles.buttonText, activeTab === 'Diseases' && styles.activeButtonText]}>Diseases</Text>
+              <Text style={[styles.buttonText, activeTab === 'Diseases' && styles.activeButtonText]}>Doenças</Text>
             </TouchableOpacity>
           </View>
 
@@ -211,7 +223,7 @@ export default function PlantScreen() {
             style={styles.addTaskButton}
             onPress={() => navigation.navigate('CreateTask', { plantId })}
           >
-            <Text style={styles.addTaskButtonText}>Add Task</Text>
+            <Text style={styles.addTaskButtonText}>Adicionar Tarefa</Text>
           </TouchableOpacity>
 
           {activeTab === 'Tasks' ? (
@@ -224,7 +236,7 @@ export default function PlantScreen() {
                   <TouchableOpacity
                     key={task.id}
                     style={styles.item}
-                    onPress={() => navigation.navigate('TaskDetail', { taskId: task.id, plantId })}
+                    onPress={() => navigation.navigate('Task', { taskId: task.id, plantId })}
                   >
                     <View style={styles.taskContent}>
                       <Text style={styles.itemName}>{task.name}</Text>
@@ -293,7 +305,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 100, // Ensure enough padding for BottomBar and edit button
+    paddingBottom: 100,
     alignItems: 'center',
   },
   content: {
@@ -360,8 +372,6 @@ const styles = StyleSheet.create({
   section: {
     width: '100%',
     marginBottom: 20,
-    // Temporary background for debugging
-    // backgroundColor: '#f0f0f0',
   },
   sectionTitle: {
     fontSize: 20,

@@ -113,7 +113,13 @@ export const initializeDatabase = async (db) => {
     await db.runAsync('INSERT OR IGNORE INTO care_levels (name) VALUES (?);', ['Easy']);
     await db.runAsync('INSERT OR IGNORE INTO care_levels (name) VALUES (?);', ['Moderate']);
     await db.runAsync('INSERT OR IGNORE INTO care_levels (name) VALUES (?);', ['High']);
-    
+
+    // Inserir dados iniciais para notification_types
+    await db.runAsync('INSERT OR IGNORE INTO notification_types (notification_type) VALUES (?);', ['Única']);
+    await db.runAsync('INSERT OR IGNORE INTO notification_types (notification_type) VALUES (?);', ['Diária']);
+    await db.runAsync('INSERT OR IGNORE INTO notification_types (notification_type) VALUES (?);', ['Semanal']);
+    await db.runAsync('INSERT OR IGNORE INTO notification_types (notification_type) VALUES (?);', ['Mensal']);
+
     console.log('Database initialized successfully in db.js');
   } catch (error) {
     console.error('Error initializing database in db.js:', error);
