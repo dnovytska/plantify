@@ -50,11 +50,11 @@ const AppContent = ({ navigation }) => (
         headerRight: () => <HeaderDropdown />,
         headerTitleAlign: 'center',
       }}
-      initialRouteName="Home"
+      initialRouteName="YourPlants"
     >
       <AppStack.Screen name="Home" component={HomeScreen} />
       <AppStack.Screen name="YourPlants" component={YourPlantsScreen} />
-      <AppStack.Screen name="SettingsScreen" component={SettingsScreen} />
+      <AppStack.Screen name="Settings" component={SettingsScreen} />
       <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
       <AppStack.Screen name="AddPlant" component={AddPlantScreen} />
       <AppStack.Screen name="Plant" component={PlantScreen} />

@@ -1,65 +1,121 @@
 import React, { useState, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  Alert,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as SQLite from 'expo-sqlite';
 import { AuthContext } from '../context/AuthContext';
 import BottomBar from '../components/BottomBar';
 
-export default function EditProfileScreen() {
-  const { user, login } = useContext(AuthContext); // Para atualizar os dados após salvar
-  const navigation = useNavigation();
-  const [username, setUsername] = useState(user?.name || '');
-  const [email, setEmail] = useState(user?.email || '');
-  const [gender, setGender] = useState(user?.gender || 'Male');
+// Inicializar a base de dados de forma assíncrona
+const openDatabase = async () => {
+  return await SQLite.openDatabaseAsync('plantifydb.db');
+};
 
-  const handleSaveChanges = async () => {
-    const updatedUser = { ...user, name: username, email, gender };
-    await login(updatedUser); // Atualiza o AuthContext com os novos dados
-    navigation.goBack(); // Volta para SettingsScreen
+export default function EditProfileScreen({ navigation }) {
+  const { user, setUser } = useContext(AuthContext);
+  const [username, setUsername] = useState(user.name);
+  const [email, setEmail] = useState(user.email);
+  const [password, setPassword] = useState('');
+  const [gender, setGender] = useState(user.gender);
+  const [imageUri, setImageUri] = useState(user.profile_image);
+
+  const pickImage = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permissionResult.granted) {
+      Alert.alert('Permissão necessária', 'Permita o acesso à galeria para escolher uma imagem.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['image'], // Corrigido para usar array em vez de MediaTypeOptions
+      allowsEditing: true,
+      aspect: [4, 4],
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      const db = await openDatabase(); // Resolver a promessa para obter o objeto da base de dados
+      const query = `
+        UPDATE users
+        SET name = ?, email = ?, gender = ?, ${password ? 'password = ?,' : ''} profile_image = ?
+        WHERE iduser = ?
+      `;
+      const values = password
+        ? [username, email, gender, password, imageUri, user.iduser]
+        : [username, email, gender, imageUri, user.iduser];
+
+      await db.runAsync(query, values); // Usar runAsync para executar a consulta
+      const updatedUser = {
+        ...user,
+        name: username,
+        email,
+        gender,
+        profile_image: imageUri,
+        ...(password ? { password } : {}),
+      };
+      setUser(updatedUser);
+      Alert.alert('Sucesso', 'Perfil atualizado com sucesso.');
+      navigation.goBack();
+    } catch (error) {
+      console.error('Erro ao atualizar perfil:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar o perfil.');
+    }
   };
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.avatarContainer}>
-          <Image
-            source={{ uri: 'https://via.placeholder.com/60' }} // Substitua por uma URL de imagem real ou use um estado para a foto
-            style={styles.avatar}
-          />
-          <Text style={styles.addIcon}>+</Text>
-        </TouchableOpacity>
-        <TextInput
-          style={styles.input}
-          value={username}
-          onChangeText={setUsername}
-          placeholder="Username"
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <View style={styles.genderContainer}>
-          <TouchableOpacity
-            style={[styles.genderButton, gender === 'Male' && styles.genderButtonSelected]}
-            onPress={() => setGender('Male')}
-          >
-            <Text style={styles.genderText}>Male</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.genderButton, gender === 'Female' && styles.genderButtonSelected]}
-            onPress={() => setGender('Female')}
-          >
-            <Text style={styles.genderText}>Female</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges}>
-          <Text style={styles.saveButtonText}>Save Changes</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity onPress={pickImage}>
+        <Image source={{ uri: imageUri }} style={styles.image} />
+        <Text style={styles.changeImageText}>Alterar imagem</Text>
+      </TouchableOpacity>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Nome de utilizador"
+        value={username}
+        onChangeText={setUsername}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Nova palavra-passe (opcional)"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Género"
+        value={gender}
+        onChangeText={setGender}
+      />
+
+      <Button title="Guardar alterações" onPress={handleSave} color="#4CAF50" />
+
       <BottomBar />
     </View>
   );
@@ -68,72 +124,27 @@ export default function EditProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
     padding: 20,
+    backgroundColor: '#ffffff',
   },
-  header: {
-    alignItems: 'center',
+  image: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    alignSelf: 'center',
+    marginBottom: 10,
   },
-  avatarContainer: {
-    position: 'relative',
-    marginBottom: 20,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: '#468585',
-  },
-  addIcon: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: '#468585',
-    color: '#fff',
-    width: 20,
-    height: 20,
+  changeImageText: {
     textAlign: 'center',
-    borderRadius: 10,
-    fontSize: 14,
+    color: '#007BFF',
+    marginBottom: 20,
   },
   input: {
-    width: '100%',
+    height: 50,
+    borderColor: '#cccccc',
     borderWidth: 1,
-    borderColor: '#468585',
+    paddingHorizontal: 15,
     borderRadius: 10,
-    padding: 10,
     marginBottom: 15,
-    fontSize: 16,
-  },
-  genderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '60%',
-    marginBottom: 20,
-  },
-  genderButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#468585',
-    borderRadius: 20,
-  },
-  genderButtonSelected: {
-    backgroundColor: '#468585',
-  },
-  genderText: {
-    color: '#468585',
-    fontSize: 16,
-  },
-  saveButton: {
-    backgroundColor: '#B0A8F0',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
   },
 });
