@@ -172,14 +172,6 @@ export default function PlantScreen() {
     navigation.navigate('Task', { taskId: task.id, plantId });
   };
 
-  const handleAddDiseasePress = () => {
-    navigation.navigate('CreateDiseaseScreen', { plantId }); // Navega para a tela de criação de doenças
-  };
-
-  const handleDiseasePress = (disease) => {
-    navigation.navigate('DiseaseScreen', { diseaseId: disease.id, plantId }); // Navega para a tela de detalhes da doença
-  };
-
   if (!plant) {
     return (
       <SafeAreaView style={styles.container}>
@@ -229,23 +221,12 @@ export default function PlantScreen() {
             </TouchableOpacity>
           </View>
 
-          {activeTab === 'Tasks' && (
-            <TouchableOpacity
-              style={styles.addTaskButton}
-              onPress={() => navigation.navigate('CreateTask', { plantId })}
-            >
-              <Text style={styles.addTaskButtonText}>Adicionar Tarefa</Text>
-            </TouchableOpacity>
-          )}
-
-          {activeTab === 'Diseases' && (
-            <TouchableOpacity
-              style={styles.addDiseaseButton}
-              onPress={handleAddDiseasePress}
-            >
-              <Text style={styles.addDiseaseButtonText}>Adicionar Doença</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.addTaskButton}
+            onPress={() => navigation.navigate('CreateTask', { plantId })}
+          >
+            <Text style={styles.addTaskButtonText}>Adicionar Tarefa</Text>
+          </TouchableOpacity>
 
           {activeTab === 'Tasks' ? (
             <View style={styles.section}>
@@ -265,6 +246,12 @@ export default function PlantScreen() {
                       <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
                       <Text style={styles.itemDetail}>Status: {task.isRead ? 'Concluída' : 'Pendente'}</Text>
                     </View>
+                    <TouchableOpacity
+                      style={[styles.taskButton, styles.deleteButton]}
+                      onPress={() => handleDeleteTask(task.id)}
+                    >
+                      <Text style={styles.taskButtonText}>🗑️</Text>
+                    </TouchableOpacity>
                   </TouchableOpacity>
                 ))
               )}
@@ -276,14 +263,10 @@ export default function PlantScreen() {
                 <Text style={styles.noItems}>Nenhuma doença encontrada.</Text>
               ) : (
                 diseases.map((disease) => (
-                  <TouchableOpacity
-                    key={disease.id}
-                    style={styles.item}
-                    onPress={() => handleDiseasePress(disease)}
-                  >
+                  <View key={disease.id} style={styles.item}>
                     <Text style={styles.itemName}>{disease.name}</Text>
                     <Text style={styles.itemDetail}>{disease.description}</Text>
-                  </TouchableOpacity>
+                  </View>
                 ))
               )}
             </View>
@@ -332,7 +315,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     color: "#468585",
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 10,
   },
   detail: {
@@ -355,20 +338,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addTaskButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  addDiseaseButton: {
-    backgroundColor: "#FFA500",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    marginBottom: 20,
-    width: "100%",
-    alignItems: "center",
-  },
-  addDiseaseButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
@@ -403,7 +372,7 @@ const styles = StyleSheet.create({
   },
   itemDetail: {
     fontSize: 14,
-    color: "#468585",
+    color: "#468 585",
   },
   noItems: {
     fontSize: 16,

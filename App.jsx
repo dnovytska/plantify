@@ -21,6 +21,8 @@ import BottomBar from './src/components/BottomBar';
 import CreateTaskScreen from './src/screens/CreateTaskScreen';
 import EditTaskScreen from './src/screens/EditTaskScreen';
 import TaskScreen from './src/screens/TaskScreen';
+import CreateDiseaseScreen from './src/screens/CreateDiseaseScreen';
+import DiseaseScreen from './src/screens/DiseaseScreen';
 import * as Notifications from 'expo-notifications';
 
 Notifications.setNotificationHandler({
@@ -63,6 +65,8 @@ const AppContent = ({ navigation }) => (
       <AppStack.Screen name="CreateTask" component={CreateTaskScreen} />
       <AppStack.Screen name="EditTask" component={EditTaskScreen} />
       <AppStack.Screen name="Task" component={TaskScreen} />
+      <AppStack.Screen name="CreateDiseaseScreen" component={CreateDiseaseScreen} />
+      <AppStack.Screen name="DiseaseScreen" component={DiseaseScreen} />
     </AppStack.Navigator>
     <BottomBar navigation={navigation} />
   </>

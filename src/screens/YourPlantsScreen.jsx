@@ -79,6 +79,16 @@ export default function YourPlantsScreen() {
     navigation.navigate('Plant', { plantId });
   };
 
+  const handleTasksPress = (plantId) => {
+    console.log("Navegando para PlantScreen (tarefas) com plantId:", plantId);
+    if (!plantId) {
+      console.error("plantId é undefined na navegação!");
+      Alert.alert("Erro", "ID da planta inválido.");
+      return;
+    }
+    navigation.navigate('Plant', { plantId });
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
       <ScrollView style={{ flex: 1 }}>
@@ -92,30 +102,29 @@ export default function YourPlantsScreen() {
             </Text>
           ) : (
             plants.map((plant) => (
-              <TouchableOpacity
-                key={plant.id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  backgroundColor: "#E9E9F9",
-                  borderRadius: 20,
-                  padding: 10,
-                  marginBottom: 10,
-                  marginHorizontal: 5,
-                }}
-                onPress={() => handlePlantPress(plant.id)}
-              >
-                <Image
-                  source={{ uri: plant.image }}
-                  resizeMode="contain"
-                  style={{ width: 40, height: 40, marginRight: 10 }}
-                />
-                <View>
-                  <Text style={{ color: "#2F2182", fontSize: 16 }}>{plant.name}</Text>
-                  <Text style={{ color: "#468585", fontSize: 14 }}>{plant.type}</Text>
-                  <Text style={{ color: "#468585", fontSize: 12 }}>{plant.createdAt}</Text>
-                </View>
-              </TouchableOpacity>
+              <View key={plant.id} style={{
+                backgroundColor: "#E9E9F9",
+                borderRadius: 20,
+                padding: 10,
+                marginBottom: 10,
+                marginHorizontal: 5,
+              }}>
+                <TouchableOpacity
+                  style={{ flexDirection: "row", alignItems: "center" }}
+                  onPress={() => handlePlantPress(plant.id)}
+                >
+                  <Image
+                    source={{ uri: plant.image }}
+                    resizeMode="contain"
+                    style={{ width: 40, height: 40, marginRight: 10 }}
+                  />
+                  <View>
+                    <Text style={{ color: "#2F2182", fontSize: 16 }}>{plant.name}</Text>
+                    <Text style={{ color: "#468585", fontSize: 14 }}>{plant.type}</Text>
+                    <Text style={{ color: "#468585", fontSize: 12 }}>{plant.createdAt}</Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
             ))
           )}
         </View>
