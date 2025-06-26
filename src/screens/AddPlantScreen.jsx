@@ -1,26 +1,29 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Modal } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
-import { useNavigation } from '@react-navigation/native';
-import { AuthContext } from '../context/AuthContext';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import BottomBar from '../components/BottomBar';
 import RNPickerSelect from 'react-native-picker-select';
 import { openDatabase, initializeDatabase } from '../DB/db';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import { AuthContext } from '../context/AuthContext';
+import debounce from 'lodash/debounce';
 
 export default function AddPlantScreen() {
-  const { user, isLoading, loggedIn, logout } = useContext(AuthContext);
   const navigation = useNavigation();
-  const [plantName, setPlantName] = useState('');
+  const route = useRoute();
+  const { user, loggedIn, isLoading } = useContext(AuthContext);
+  const { imageUri: initialImageUri, plantName: initialPlantName, plantTypeId: initialPlantTypeId } = route.params || {};
+  const [plantName, setPlantName] = useState(initialPlantName || '');
   const [description, setDescription] = useState('');
   const [creationDate, setCreationDate] = useState(new Date().toISOString().split('T')[0]);
-  const [plantTypeId, setPlantTypeId] = useState(null);
+  const [plantTypeId, setPlantTypeId] = useState(initialPlantTypeId || null);
   const [plantTypesByType, setPlantTypesByType] = useState({});
   const [selectedPlantType, setSelectedPlantType] = useState(null);
   const [filteredPlantTypes, setFilteredPlantTypes] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [imageUri, setImageUri] = useState(null);
+  const [imageUri, setImageUri] = useState(initialImageUri || 'https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/820zgqtn.png');
   const [db, setDb] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [newPlantTypeName, setNewPlantTypeName] = useState('');
@@ -29,203 +32,72 @@ export default function AddPlantScreen() {
   const [newPlantGrowthRate, setNewPlantGrowthRate] = useState('');
   const [newPlantCareLevel, setNewPlantCareLevel] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState(null);
 
   const wateringOptions = ['Low', 'Moderate', 'Regular'];
   const sunlightOptions = ['Full Sun', 'Partial Sun', 'Shade'];
   const growthRateOptions = ['Slow', 'Medium', 'Fast'];
   const careLevelOptions = ['Easy', 'Moderate', 'High'];
 
+  console.log('AddPlantScreen - Estado inicial:', { user, loggedIn, isLoading });
+
   useEffect(() => {
-    const initDbAndLoadUser = async () => {
+    const initialize = async () => {
+      if (isLoading) {
+        console.log('Aguardando AuthContext carregar...');
+        return;
+      }
+
+      if (!user || !user.iduser || !loggedIn) {
+        console.warn('Usuário não logado ou iduser ausente:', { user, loggedIn });
+        Alert.alert('Erro', 'Você precisa estar logado para adicionar uma planta. Faça login primeiro.');
+        navigation.navigate('Login');
+        return;
+      }
+
       try {
-        console.log('Iniciando carregamento no AddPlantScreen:', { isLoading, loggedIn, user });
-        if (isLoading) {
-          console.log('Aguardando carregamento do AuthContext...');
-          return;
-        }
-
-        let resolvedUserId = null;
-
-        if (loggedIn && user && user.id) {
-          resolvedUserId = user.id;
-          setCurrentUserId(user.id);
-          console.log('Usuário logado encontrado no AuthContext:', user.id);
-        } else {
-          console.log('Nenhum usuário logado ou ID inválido:', { loggedIn, user });
-          const storedUser = await AsyncStorage.getItem('user');
-          if (storedUser) {
-            const parsedUser = JSON.parse(storedUser);
-            console.log('Dados do AsyncStorage:', parsedUser);
-            if (parsedUser && parsedUser.id) {
-              resolvedUserId = parsedUser.id;
-              setCurrentUserId(parsedUser.id);
-              console.log('Usuário logado encontrado no AsyncStorage:', parsedUser.id);
-            }
-          }
-        }
-
-        // Só mostra alerta se realmente não encontrou usuário
-        if (!resolvedUserId) {
-          Alert.alert(
-            'Erro de Autenticação',
-            'Nenhum usuário está logado. Por favor, faça login novamente.',
-            [
-              {
-                text: 'OK',
-                onPress: () => logout(),
-              },
-            ]
-          );
-          return;
-        }
-
+        console.log('Inicializando banco de dados para AddPlantScreen...');
         const database = await openDatabase();
         await initializeDatabase(database);
         setDb(database);
-
-        const speciesMap = require('../../assets/plantnet/plantnet300K_species_id_2_name.json');
-
-        const countResult = await database.getFirstAsync('SELECT COUNT(*) as count FROM plant_types;');
-        if (countResult.count === 0) {
-          await loadPlantNetData(database, speciesMap);
-        }
-
         await loadPlantTypesFromLocalDb(database);
-        setIsDataLoaded(true);
-      } catch (error) {
-        console.error('Erro ao inicializar o banco de dados ou carregar usuário:', error);
-        Alert.alert('Erro', `Não foi possível carregar os dados: ${error.message}`);
-        if (error.message && error.message.includes('usuário')) {
-          logout();
-        }
-      }
-    };
-    initDbAndLoadUser();
-    // eslint-disable-next-line
-  }, [isLoading, loggedIn, user, logout]);
 
-  useEffect(() => {
-    console.log('Filtrando plantas, selectedPlantType:', selectedPlantType, 'searchQuery:', searchQuery);
-    
-    if (Object.keys(plantTypesByType).length === 0) {
-      console.log('Nenhum dado de plantas disponível');
-      setFilteredPlantTypes([]);
-      return;
-    }
-
-    let typesToFilter = [];
-    
-    if (!selectedPlantType) {
-      console.log('Buscando em todas as plantas');
-      typesToFilter = Object.values(plantTypesByType).flat();
-    } else {
-      console.log('Buscando no tipo selecionado:', selectedPlantType.type);
-      typesToFilter = plantTypesByType[selectedPlantType.type] || [];
-    }
-
-    console.log('Tipos a filtrar:', typesToFilter);
-
-    if (searchQuery.trim() === '') {
-      setFilteredPlantTypes(typesToFilter);
-    } else {
-      const filtered = typesToFilter.filter(type =>
-        type.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredPlantTypes(filtered);
-    }
-
-    if (typesToFilter.length > 0 && !plantTypeId && selectedPlantType) {
-      console.log('Selecionando a primeira planta por padrão:', typesToFilter[0].idplant_type);
-      setPlantTypeId(typesToFilter[0].idplant_type);
-      setSelectedPlantType(typesToFilter[0]);
-    }
-  }, [searchQuery, selectedPlantType, plantTypesByType, plantTypeId]);
-
-  useEffect(() => {
-    if (plantTypeId && filteredPlantTypes.length > 0) {
-      const selectedPlant = filteredPlantTypes.find(plant => plant.idplant_type === plantTypeId);
-      setSelectedPlantType(selectedPlant);
-    }
-  }, [plantTypeId, filteredPlantTypes]);
-
-  useEffect(() => {
-    if (db && selectedPlantType) {
-      console.log('Carregando tipos para selectedPlantType:', selectedPlantType);
-      loadPlantTypesFromLocalDb(db, selectedPlantType.type);
-    }
-  }, [selectedPlantType, db]);
-
-  const loadPlantNetData = async (database, speciesMap) => {
-    try {
-      const categoryMap = {
-        "Aloe": "succulent",
-        "Echeveria": "succulent",
-        "Quercus": "tree",
-        "Pinus": "tree",
-        "Rosa": "flower",
-        "Tulipa": "flower",
-        "Hedera": "vine",
-        "Clematis": "vine",
-        "Syringa": "shrub",
-        "Hydrangea": "shrub"
-      };
-
-      const defaultAttributes = {
-        "succulent": { watering: "Low", sunlight: "Full Sun", growth_rate: "Slow", care_level: "Easy" },
-        "tree": { watering: "Moderate", sunlight: "Full Sun", growth_rate: "Slow", care_level: "Moderate" },
-        "flower": { watering: "Regular", sunlight: "Full Sun", growth_rate: "Medium", care_level: "Moderate" },
-        "vine": { watering: "Moderate", sunlight: "Partial Sun", growth_rate: "Fast", care_level: "Moderate" },
-        "shrub": { watering: "Regular", sunlight: "Partial Sun", growth_rate: "Medium", care_level: "Moderate" },
-        "unknown": { watering: "Moderate", sunlight: "Partial Sun", growth_rate: "Medium", care_level: "Moderate" }
-      };
-
-      const maxEntries = 1000;
-      let count = 0;
-      for (const speciesId in speciesMap) {
-        if (count >= maxEntries) break;
-        const speciesName = speciesMap[speciesId];
-        let category = "unknown";
-        for (const genus in categoryMap) {
-          if (speciesName.startsWith(genus)) {
-            category = categoryMap[genus];
-            break;
+        if (initialPlantTypeId) {
+          const plantTypeData = await database.getFirstAsync(
+            `SELECT pt.idplant_type, pt.name AS type_name,
+                    wl.name AS watering_name, sl.name AS sunlight_name,
+                    gr.name AS growth_rate_name, cl.name AS care_level_name
+             FROM plant_types pt
+             LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
+             LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
+             LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
+             LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
+             WHERE pt.idplant_type = ?`,
+            [initialPlantTypeId]
+          );
+          if (plantTypeData) {
+            setSelectedPlantType({
+              idplant_type: plantTypeData.idplant_type,
+              name: plantTypeData.type_name,
+              type: (plantTypeData.watering_name?.toLowerCase() || plantTypeData.sunlight_name?.toLowerCase() ||
+                     plantTypeData.growth_rate_name?.toLowerCase() || plantTypeData.care_level_name?.toLowerCase() || 'unknown'),
+              watering: plantTypeData.watering_name || 'Unknown',
+              sunlight: plantTypeData.sunlight_name || 'Unknown',
+              growth_rate: plantTypeData.growth_rate_name || 'Unknown',
+              care_level: plantTypeData.care_level_name || 'Unknown',
+            });
+            setSearchQuery(plantTypeData.type_name);
           }
         }
-        const attributes = defaultAttributes[category] || defaultAttributes["unknown"];
 
-        const watering = await database.getFirstAsync('SELECT id FROM watering_levels WHERE name = ?', [attributes.watering]);
-        const sunlight = await database.getFirstAsync('SELECT id FROM sunlight_levels WHERE name = ?', [attributes.sunlight]);
-        const growthRate = await database.getFirstAsync('SELECT id FROM growth_rates WHERE name = ?', [attributes.growth_rate]);
-        const careLevel = await database.getFirstAsync('SELECT id FROM care_levels WHERE name = ?', [attributes.care_level]);
-
-        try {
-          await database.runAsync(
-            'INSERT OR IGNORE INTO plant_types (name, watering_id, sunlight_id, growth_rate_id, care_level_id) VALUES (?, ?, ?, ?, ?)',
-            [
-              speciesName,
-              watering ? watering.id : null,
-              sunlight ? sunlight.id : null,
-              growthRate ? growthRate.id : null,
-              careLevel ? careLevel.id : null
-            ]
-          );
-        } catch (error) {
-          console.error(`Erro ao inserir ${speciesName}:`, error);
-        }
-        count++;
+        setIsDataLoaded(true);
+        console.log('Inicialização concluída, user:', user);
+      } catch (error) {
+        console.error('Erro ao inicializar a AddPlantScreen:', error);
+        Alert.alert('Erro', `Falha ao inicializar: ${error.message}`);
       }
-
-      console.log('Dados do Pl@ntNet carregados com sucesso:', Object.keys(speciesMap).length, 'espécies');
-    } catch (error) {
-      console.error('Erro ao carregar dados do Pl@ntNet:', error);
-      Alert.alert(
-        'Erro ao Carregar Dados',
-        `Não foi possível carregar os dados do Pl@ntNet. Detalhes: ${error.message}`,
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
-    }
-  };
+    };
+    initialize();
+  }, [user, loggedIn, isLoading, initialPlantTypeId, navigation]);
 
   const loadPlantTypesFromLocalDb = async (database, type = null) => {
     try {
@@ -237,29 +109,29 @@ export default function AddPlantScreen() {
 
       const query = type
         ? `
-          SELECT pt.*, 
-                 wl.name as watering_name, 
-                 sl.name as sunlight_name, 
-                 gr.name as growth_rate_name, 
-                 cl.name as care_level_name 
+          SELECT pt.*,
+                 wl.name as watering_name,
+                 sl.name as sunlight_name,
+                 gr.name as growth_rate_name,
+                 cl.name as care_level_name
           FROM plant_types pt
-          LEFT JOIN watering_levels wl ON pt.watering_id = wl.id
-          LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.id
-          LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.id
-          LEFT JOIN care_levels cl ON pt.care_level_id = cl.id
+          LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
+          LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
+          LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
+          LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
           WHERE LOWER(wl.name) = ? OR LOWER(sl.name) = ? OR LOWER(gr.name) = ? OR LOWER(cl.name) = ?
         `
         : `
-          SELECT pt.*, 
-                 wl.name as watering_name, 
-                 sl.name as sunlight_name, 
-                 gr.name as growth_rate_name, 
-                 cl.name as care_level_name 
+          SELECT pt.*,
+                 wl.name as watering_name,
+                 sl.name as sunlight_name,
+                 gr.name as growth_rate_name,
+                 cl.name as care_level_name
           FROM plant_types pt
-          LEFT JOIN watering_levels wl ON pt.watering_id = wl.id
-          LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.id
-          LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.id
-          LEFT JOIN care_levels cl ON pt.care_level_id = cl.id
+          LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
+          LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
+          LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
+          LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
         `;
       const params = type ? [type.toLowerCase(), type.toLowerCase(), type.toLowerCase(), type.toLowerCase()] : [];
 
@@ -267,19 +139,20 @@ export default function AddPlantScreen() {
       const localTypes = await dbToUse.getAllAsync(query, params);
       console.log('Resultados do banco:', localTypes);
 
-      const typesByCategory = localTypes.reduce((acc, plant) => {
-        const plantType = (plant.watering_name?.toLowerCase() || plant.sunlight_name?.toLowerCase() || plant.growth_rate_name?.toLowerCase() || plant.care_level_name?.toLowerCase() || 'unknown');
-        if (!acc[plantType]) {
-          acc[plantType] = [];
+      const typesByCategory = localTypes.reduce((acc, plantType) => {
+        const typeCategory = (plantType.watering_name?.toLowerCase() || plantType.sunlight_name?.toLowerCase() ||
+                             plantType.growth_rate_name?.toLowerCase() || plantType.care_level_name?.toLowerCase() || 'unknown');
+        if (!acc[typeCategory]) {
+          acc[typeCategory] = [];
         }
-        acc[plantType].push({
-          idplant_type: plant.idplant_type,
-          name: plant.name,
-          type: plantType,
-          watering: plant.watering_name || 'Unknown',
-          sunlight: plant.sunlight_name || 'Unknown',
-          growth_rate: plant.growth_rate_name || 'Unknown',
-          care_level: plant.care_level_name || 'Unknown',
+        acc[typeCategory].push({
+          idplant_type: plantType.idplant_type,
+          name: plantType.name,
+          type: typeCategory,
+          watering: plantType.watering_name || 'Unknown',
+          sunlight: plantType.sunlight_name || 'Unknown',
+          growth_rate: plantType.growth_rate_name || 'Unknown',
+          care_level: plantType.care_level_name || 'Unknown',
         });
         return acc;
       }, {});
@@ -294,6 +167,39 @@ export default function AddPlantScreen() {
       return {};
     }
   };
+
+  const filterPlantTypes = useCallback(
+    debounce((query, selectedType, typesByType) => {
+      if (Object.keys(typesByType).length === 0) {
+        console.log('Nenhum dado de plantas disponível');
+        setFilteredPlantTypes([]);
+        return;
+      }
+
+      let typesToFilter = [];
+      if (!selectedType) {
+        console.log('Buscando em todas as plantas');
+        typesToFilter = Object.values(typesByType).flat();
+      } else {
+        console.log('Buscando tipo selecionado:', selectedType.type);
+        typesToFilter = typesByType[selectedType.type] || [];
+      }
+
+      if (query.trim() === '') {
+        setFilteredPlantTypes(typesToFilter);
+      } else {
+        const filtered = typesToFilter.filter(type =>
+          type.name.toLowerCase().includes(query.toLowerCase())
+        );
+        setFilteredPlantTypes(filtered);
+      }
+    }, 300),
+    []
+  );
+
+  useEffect(() => {
+    filterPlantTypes(searchQuery, selectedPlantType, plantTypesByType);
+  }, [searchQuery, selectedPlantType, plantTypesByType, filterPlantTypes]);
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -314,62 +220,89 @@ export default function AddPlantScreen() {
     }
   };
 
-  const handleAddPlant = async () => {
+  const handleSave = async () => {
     if (!db) {
+      console.warn('Banco de dados não inicializado');
       Alert.alert('Erro', 'Banco de dados não inicializado. Tente novamente.');
       return;
     }
 
-    if (!plantName.trim() || !creationDate.trim() || !plantTypeId || !imageUri) {
-      Alert.alert('Por favor, preencha todos os campos obrigatórios (incluindo a imagem)');
+    if (!user || !user.iduser || !loggedIn) {
+      console.warn('Usuário não logado ao tentar salvar:', { user, loggedIn });
+      Alert.alert('Erro', 'Você precisa estar logado para adicionar uma planta. Faça login primeiro.');
+      navigation.navigate('Login');
       return;
     }
 
-    if (!currentUserId) {
-      Alert.alert(
-        'Erro de Autenticação',
-        'Nenhum usuário está logado. Por favor, faça logout e tente novamente.',
-        [
-          {
-            text: 'OK',
-            onPress: () => logout(),
-          },
-        ]
-      );
+    if (!plantName.trim() || !plantTypeId || !imageUri) {
+      console.warn('Campos obrigatórios não preenchidos:', { plantName, plantTypeId, imageUri });
+      Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios (nome, tipo de planta, imagem).');
       return;
     }
-
-    console.log('Usuário atual (ID):', currentUserId);
 
     try {
-      const imageData = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: FileSystem.EncodingType.Base64,
+      let imageBlob = imageUri;
+      if (!imageUri.startsWith('data:image')) {
+        console.log('Convertendo imagem para Base64');
+        const imageData = await FileSystem.readAsStringAsync(imageUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        imageBlob = `data:image/jpeg;base64,${imageData}`;
+      }
+
+      await db.withTransactionAsync(async () => {
+        // Inserir em plants
+        const plantResult = await db.runAsync(
+          `INSERT INTO plants (name, image, plant_type_id) VALUES (?, ?, ?)`,
+          [plantName.trim(), imageBlob, plantTypeId]
+        );
+        const newPlantId = plantResult.lastInsertRowId;
+        console.log('Planta criada:', { idplant: newPlantId, name: plantName });
+
+        // Inserir em plants_acc
+        const plantAccResult = await db.runAsync(
+          `INSERT INTO plants_acc (name, creation_date, description, image, iduser, idplant) VALUES (?, ?, ?, ?, ?, ?)`,
+          [plantName.trim(), creationDate, description || 'Planta criada pelo utilizador', imageBlob, user.iduser, newPlantId]
+        );
+        const plantAccId = plantAccResult.lastInsertRowId;
+        console.log('Planta associada:', { idplants_acc: plantAccId, iduser: user.iduser, idplant: newPlantId });
+
+        // Criar tarefa "Regar"
+        const notificationTypeResult = await db.getFirstAsync(
+          'SELECT idnotification_type FROM notification_types WHERE notification_type = ?',
+          ['Regar']
+        );
+        const notificationTypeId = notificationTypeResult ? notificationTypeResult.idnotification_type : 1;
+
+        const dueDate = new Date();
+        const notificationResult = await db.runAsync(
+          'INSERT INTO notifications (message, due_date, is_read, id_notification_type, idplants_acc) VALUES (?, ?, ?, ?, ?)',
+          ['Regar', dueDate.toISOString(), 0, notificationTypeId, plantAccId]
+        );
+        const notificationId = notificationResult.lastInsertRowId;
+        console.log('Tarefa criada:', { id: notificationId, message: 'Regar', due_date: dueDate.toISOString() });
+
+        // Agendar notificação
+        const notificationIdentifier = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Tarefa: Regar',
+            body: `Hora de regar a planta ${plantName}!`,
+          },
+          trigger: { date: dueDate },
+        });
+        console.log('Notificação agendada:', { identifier: notificationIdentifier });
       });
-      const blob = `data:image/jpeg;base64,${imageData}`;
 
-      const plantResult = await db.runAsync(
-        'INSERT INTO plants (name, image, plant_types_idplant_type) VALUES (?, ?, ?)',
-        [plantName.trim(), blob, plantTypeId]
-      );
-      const plantId = plantResult.lastInsertRowId;
-
-      await db.runAsync(
-        'INSERT INTO plants_acc (name, creation_date, description, image, users_iduser, plants_idplant) VALUES (?, ?, ?, ?, ?, ?)',
-        [plantName.trim(), creationDate, description.trim(), blob, currentUserId, plantId]
-      );
-
-      Alert.alert('Sucesso', 'Planta adicionada com sucesso!');
-      setPlantName('');
-      setDescription('');
-      setCreationDate(new Date().toISOString().split('T')[0]);
-      setImageUri(null);
-      setPlantTypeId(null);
-      setSearchQuery('');
-      setSelectedPlantType(null);
-      navigation.navigate('YourPlants');
+      console.log('Planta salva com sucesso, navegando para YourPlants com user:', user);
+      Alert.alert('Sucesso', 'Planta adicionada com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('YourPlants'),
+        },
+      ]);
     } catch (error) {
-      console.error('Erro ao adicionar planta:', error);
-      Alert.alert('Erro', `Não foi possível adicionar a planta. Detalhes: ${error.message}`);
+      console.error('Erro ao adicionar a planta:', error);
+      Alert.alert('Erro', `Falha ao adicionar a planta: ${error.message}`);
     }
   };
 
@@ -382,33 +315,36 @@ export default function AddPlantScreen() {
 
   const handleCreatePlantType = async () => {
     if (!db) {
+      console.warn('Banco de dados não inicializado');
       Alert.alert('Erro', 'Banco de dados não inicializado. Tente novamente.');
       return;
     }
 
     if (!newPlantTypeName.trim()) {
-      Alert.alert('Por favor, preencha pelo menos o nome do tipo de planta.');
+      console.warn('Nome do tipo de planta não preenchido');
+      Alert.alert('Erro', 'Por favor, preencha pelo menos o nome do tipo de planta.');
       return;
     }
 
     try {
-      const watering = await db.getFirstAsync('SELECT id FROM watering_levels WHERE name = ?', [newPlantWatering || 'Moderate']);
-      const sunlight = await db.getFirstAsync('SELECT id FROM sunlight_levels WHERE name = ?', [newPlantSunlight || 'Partial Sun']);
-      const growthRate = await db.getFirstAsync('SELECT id FROM growth_rates WHERE name = ?', [newPlantGrowthRate || 'Medium']);
-      const careLevel = await db.getFirstAsync('SELECT id FROM care_levels WHERE name = ?', [newPlantCareLevel || 'Moderate']);
+      const watering = await db.getFirstAsync('SELECT idwatering_level FROM watering_levels WHERE name = ?', [newPlantWatering || 'Moderate']);
+      const sunlight = await db.getFirstAsync('SELECT idsunlight_level FROM sunlight_levels WHERE name = ?', [newPlantSunlight || 'Partial Sun']);
+      const growthRate = await db.getFirstAsync('SELECT idgrowth_rate FROM growth_rates WHERE name = ?', [newPlantGrowthRate || 'Medium']);
+      const careLevel = await db.getFirstAsync('SELECT idcare_level FROM care_levels WHERE name = ?', [newPlantCareLevel || 'Moderate']);
 
       const result = await db.runAsync(
         'INSERT INTO plant_types (name, watering_id, sunlight_id, growth_rate_id, care_level_id) VALUES (?, ?, ?, ?, ?)',
         [
           newPlantTypeName.trim(),
-          watering ? watering.id : null,
-          sunlight ? sunlight.id : null,
-          growthRate ? growthRate.id : null,
-          careLevel ? careLevel.id : null
+          watering ? watering.idwatering_level : null,
+          sunlight ? sunlight.idsunlight_level : null,
+          growthRate ? growthRate.idgrowth_rate : null,
+          careLevel ? careLevel.idcare_level : null
         ]
       );
 
       const newPlantId = result.lastInsertRowId;
+      console.log('Novo tipo de planta criado:', { id: newPlantId, name: newPlantTypeName });
       Alert.alert('Sucesso', 'Novo tipo de planta criado com sucesso!');
 
       await loadPlantTypesFromLocalDb(db);
@@ -420,7 +356,8 @@ export default function AddPlantScreen() {
       setNewPlantGrowthRate('');
       setNewPlantCareLevel('');
 
-      const newType = (newPlantWatering?.toLowerCase() || newPlantSunlight?.toLowerCase() || newPlantGrowthRate?.toLowerCase() || newPlantCareLevel?.toLowerCase() || 'unknown');
+      const newType = (newPlantWatering?.toLowerCase() || newPlantSunlight?.toLowerCase() ||
+                      newPlantGrowthRate?.toLowerCase() || newPlantCareLevel?.toLowerCase() || 'unknown');
       setSelectedPlantType({ type: newType, name: newPlantTypeName.trim() });
       setPlantTypeId(newPlantId);
       const newPlantDetails = {
@@ -441,7 +378,7 @@ export default function AddPlantScreen() {
 
   const commonPlantTypes = ['succulent', 'tree', 'flower', 'shrub', 'vine', 'low', 'moderate', 'regular', 'full sun', 'partial sun', 'shade', 'slow', 'medium', 'fast', 'easy', 'high'];
 
-  if (isLoading || !isDataLoaded) {
+  if (!isDataLoaded || isLoading) {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Carregando dados...</Text>
@@ -452,29 +389,36 @@ export default function AddPlantScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingBottom: 80 }]}>
-        <Text style={styles.title}>Add New Plant</Text>
+        <Text style={styles.title}>Adicionar Planta</Text>
 
         <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
           {imageUri ? (
             <Image source={{ uri: imageUri }} style={styles.image} />
           ) : (
-            <Text style={styles.addImageText}>Add Image</Text>
+            <Text style={styles.addImageText}>Adicionar Imagem</Text>
           )}
           <Text style={styles.addIcon}>+</Text>
         </TouchableOpacity>
+
+        <Text style={styles.label}>Criador:</Text>
+        <TextInput
+          style={[styles.input, { backgroundColor: '#f0f0f0' }]}
+          value={user?.name || 'Desconhecido'}
+          editable={false}
+        />
 
         <TextInput
           style={styles.input}
           value={plantName}
           onChangeText={setPlantName}
-          placeholder="Plant Name"
+          placeholder="Nome da Planta"
           autoCapitalize="words"
         />
         <TextInput
           style={[styles.input, styles.descriptionInput]}
           value={description}
           onChangeText={setDescription}
-          placeholder="Description"
+          placeholder="Descrição"
           multiline
           numberOfLines={4}
         />
@@ -482,11 +426,12 @@ export default function AddPlantScreen() {
           style={styles.input}
           value={creationDate}
           onChangeText={setCreationDate}
-          placeholder="Creation Date (YYYY-MM-DD)"
+          placeholder="Data de Criação (YYYY-MM-DD)"
           autoCapitalize="none"
+          editable={false}
         />
 
-        <Text style={styles.sectionTitle}>Select Plant Type (Optional)</Text>
+        <Text style={styles.sectionTitle}>Selecionar Tipo de Planta</Text>
         {Object.keys(plantTypesByType).length === 0 ? (
           <Text style={styles.errorText}>Nenhum tipo de planta disponível. Verifique os dados.</Text>
         ) : (
@@ -516,17 +461,17 @@ export default function AddPlantScreen() {
               style={[styles.typeButton, styles.createButton]}
               onPress={() => setShowCreateModal(true)}
             >
-              <Text style={styles.typeButtonText}>Create New Type</Text>
+              <Text style={styles.typeButtonText}>Criar Novo Tipo</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Search Plants</Text>
+        <Text style={styles.sectionTitle}>Buscar Plantas</Text>
         <TextInput
           style={styles.input}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder={selectedPlantType ? `Search ${selectedPlantType.type.charAt(0).toUpperCase() + selectedPlantType.type.slice(1)}...` : 'Search All Plants...'}
+          placeholder={selectedPlantType ? `Buscar ${selectedPlantType.type.charAt(0).toUpperCase() + selectedPlantType.type.slice(1)}...` : 'Buscar Todas as Plantas...'}
           autoCapitalize="none"
         />
 
@@ -541,7 +486,7 @@ export default function AddPlantScreen() {
                 label: type.name,
                 value: type.idplant_type,
               }))}
-              placeholder={{ label: `Select a plant...`, value: null }}
+              placeholder={{ label: 'Selecione uma planta...', value: null }}
               style={pickerSelectStyles}
               value={plantTypeId}
             />
@@ -555,18 +500,85 @@ export default function AddPlantScreen() {
         {selectedPlantType && filteredPlantTypes.length > 0 && plantTypeId && (
           <View style={styles.detailsContainer}>
             <Text style={styles.detailsTitle}>{selectedPlantType.name}</Text>
-            <Text style={styles.detailsText}>Watering: {selectedPlantType.watering}</Text>
-            <Text style={styles.detailsText}>Sunlight: {selectedPlantType.sunlight}</Text>
-            <Text style={styles.detailsText}>Growth Rate: {selectedPlantType.growth_rate}</Text>
-            <Text style={styles.detailsText}>Care Level: {selectedPlantType.care_level}</Text>
+            <Text style={styles.detailsText}>Rega: {selectedPlantType.watering}</Text>
+            <Text style={styles.detailsText}>Luz Solar: {selectedPlantType.sunlight}</Text>
+            <Text style={styles.detailsText}>Taxa de Crescimento: {selectedPlantType.growth_rate}</Text>
+            <Text style={styles.detailsText}>Nível de Cuidado: {selectedPlantType.care_level}</Text>
           </View>
         )}
 
-        <TouchableOpacity style={styles.addButton} onPress={handleAddPlant}>
-          <Text style={styles.addButtonText}>Add Plant</Text>
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <Text style={styles.saveButtonText}>Salvar</Text>
         </TouchableOpacity>
       </ScrollView>
-      <BottomBar navigation={navigation} />
+
+      <Modal
+        visible={showCreateModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowCreateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Criar Novo Tipo de Planta</Text>
+            <TextInput
+              style={styles.input}
+              value={newPlantTypeName}
+              onChangeText={setNewPlantTypeName}
+              placeholder="Nome do Tipo de Planta"
+              autoCapitalize="words"
+            />
+            <Text style={styles.label}>Rega:</Text>
+            <RNPickerSelect
+              onValueChange={setNewPlantWatering}
+              items={wateringOptions.map(option => ({ label: option, value: option }))}
+              placeholder={{ label: 'Selecione a Rega...', value: null }}
+              style={pickerSelectStyles}
+              value={newPlantWatering}
+            />
+            <Text style={styles.label}>Luz Solar:</Text>
+            <RNPickerSelect
+              onValueChange={setNewPlantSunlight}
+              items={sunlightOptions.map(option => ({ label: option, value: option }))}
+              placeholder={{ label: 'Selecione a Luz Solar...', value: null }}
+              style={pickerSelectStyles}
+              value={newPlantSunlight}
+            />
+            <Text style={styles.label}>Taxa de Crescimento:</Text>
+            <RNPickerSelect
+              onValueChange={setNewPlantGrowthRate}
+              items={growthRateOptions.map(option => ({ label: option, value: option }))}
+              placeholder={{ label: 'Selecione a Taxa de Crescimento...', value: null }}
+              style={pickerSelectStyles}
+              value={newPlantGrowthRate}
+            />
+            <Text style={styles.label}>Nível de Cuidado:</Text>
+            <RNPickerSelect
+              onValueChange={setNewPlantCareLevel}
+              items={careLevelOptions.map(option => ({ label: option, value: option }))}
+              placeholder={{ label: 'Selecione o Nível de Cuidado...', value: null }}
+              style={pickerSelectStyles}
+              value={newPlantCareLevel}
+            />
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowCreateModal(false)}
+              >
+                <Text style={styles.modalButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { backgroundColor: '#468585' }]}
+                onPress={handleCreatePlantType}
+              >
+                <Text style={styles.modalButtonText}>Criar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <BottomBar />
     </View>
   );
 }
@@ -580,34 +592,132 @@ const styles = StyleSheet.create({
   infoText: { fontSize: 16, color: '#468585', marginBottom: 15, textAlign: 'center' },
   title: { fontSize: 24, color: '#468585', marginBottom: 20 },
   sectionTitle: { fontSize: 18, color: '#468585', marginBottom: 10, alignSelf: 'flex-start' },
-  imageContainer: { position: 'relative', marginBottom: 20, width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: '#468585', justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' },
+  label: { fontSize: 16, color: '#468585', marginBottom: 5, alignSelf: 'flex-start' },
+  imageContainer: {
+    position: 'relative',
+    marginBottom: 20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#468585',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0'
+  },
   image: { width: 96, height: 96, borderRadius: 48 },
   addImageText: { color: '#468585', fontSize: 16 },
-  addIcon: { position: 'absolute', bottom: 5, right: 5, backgroundColor: '#468585', color: '#fff', width: 20, height: 20, textAlign: 'center', borderRadius: 10, fontSize: 14 },
-  input: { width: '100%', borderWidth: 1, borderColor: '#468585', borderRadius: 10, padding: 10, marginBottom: 15, fontSize: 16 },
+  addIcon: {
+    position: 'absolute',
+    bottom: 5,
+    right: 5,
+    backgroundColor: '#468585',
+    color: '#fff',
+    width: 20,
+    height: 20,
+    textAlign: 'center',
+    borderRadius: 10,
+    fontSize: 14
+  },
+  input: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#468585',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 15,
+    fontSize: 16
+  },
   descriptionInput: { height: 100, textAlignVertical: 'top' },
   typeButtonContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
-  typeButton: { backgroundColor: '#f0f0f0', paddingVertical: 8, paddingHorizontal: 15, borderRadius: 20, margin: 5, borderWidth: 1, borderColor: '#468585' },
+  typeButton: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+    margin: 5,
+    borderWidth: 1,
+    borderColor: '#468585'
+  },
   typeButtonSelected: { backgroundColor: '#468585' },
   typeButtonText: { color: '#468585', fontSize: 14 },
   typeButtonTextSelected: { color: '#fff' },
+  createButton: { backgroundColor: '#B0A8F0' },
   dropdownContainer: { width: '100%', marginBottom: 15 },
-  detailsContainer: { width: '100%', padding: 10, borderWidth: 1, borderColor: '#468585', borderRadius: 10, marginBottom: 15 },
+  detailsContainer: {
+    width: '100%',
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#468585',
+    borderRadius: 10,
+    marginBottom: 15
+  },
   detailsTitle: { fontSize: 18, color: '#468585', marginBottom: 5 },
   detailsText: { fontSize: 14, color: '#333', marginBottom: 3 },
-  addButton: { backgroundColor: '#B0A8F0', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 20, marginBottom: 20 },
-  addButtonText: { color: '#fff', fontSize: 16 },
-  createButton: { backgroundColor: '#B0A8F0' },
-  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
-  modalContainer: { width: '90%', backgroundColor: '#fff', borderRadius: 10, padding: 20, maxHeight: '80%' },
-  modalTitle: { fontSize: 20, color: '#468585', marginBottom: 15, textAlign: 'center' },
-  modalButtonContainer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  modalButton: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', marginHorizontal: 5 },
+  saveButton: {
+    backgroundColor: '#468585',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginBottom: 20
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center'
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)'
+  },
+  modalContainer: {
+    width: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 20,
+    maxHeight: '80%'
+  },
+  modalTitle: {
+    fontSize: 20,
+    color: '#468585',
+    marginBottom: 15,
+    textAlign: 'center'
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 5
+  },
   cancelButton: { backgroundColor: '#ccc' },
   modalButtonText: { color: '#fff', fontSize: 16 },
 });
 
 const pickerSelectStyles = StyleSheet.create({
-  inputIOS: { width: '100%', borderWidth: 1, borderColor: '#468585', borderRadius: 10, padding: 10, fontSize: 16, color: '#000' },
-  inputAndroid: { width: '100%', borderWidth: 1, borderColor: '#468585', borderRadius: 10, padding: 10, fontSize: 16, color: '#000' },
+  inputIOS: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#468585',
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 16,
+    color: '#000'
+  },
+  inputAndroid: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#468585',
+    borderRadius: 10,
+    padding: 10,
+    fontSize: 16,
+    color: '#000'
+  },
 });

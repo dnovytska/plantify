@@ -1,125 +1,159 @@
-import React, { useState, useEffect, useContext } from "react";
-import { SafeAreaView, View, ScrollView, Image, Text, Alert, TouchableOpacity } from "react-native";
-import * as SQLite from "expo-sqlite";
-import { AuthContext } from "../context/AuthContext";
-import { useNavigation } from '@react-navigation/native';
-import { openDatabase, initializeDatabase } from "../DB/db"; // Corrigido para minúsculas
+import React, { useState, useEffect, useContext } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
+import { AuthContext } from '../context/AuthContext';
+import { openDatabase } from '../DB/db';
+import BottomBar from '../components/BottomBar';
 
-const openDB = async () => {
-  try {
-    const db = await openDatabase();
-    console.log("Banco de dados aberto com sucesso!");
-    return db;
-  } catch (error) {
-    console.error("Erro ao abrir banco de dados:", error);
-    Alert.alert("Erro", "Falha ao inicializar o banco de dados SQLite.");
-    throw error;
-  }
-};
-
-export default function YourPlantsScreen() {
-  const [db, setDb] = useState(null);
+export default function YourPlantsScreen({ navigation, route }) {
+  const { user, loggedIn, isLoading } = useContext(AuthContext);
   const [plants, setPlants] = useState([]);
-  const { user } = useContext(AuthContext);
-  const navigation = useNavigation();
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+  console.log('YourPlantsScreen - Estado inicial:', { user, loggedIn, isLoading });
 
   useEffect(() => {
-    const initializeDbAndFetchPlants = async () => {
-      if (!user || !user.id) {
-        console.log("Usuário não autenticado ou ID não definido:", user);
-        Alert.alert("Erro", "Usuário não autenticado. Faça login novamente.");
-        return; 
+    const initialize = async () => {
+      if (isLoading) {
+        console.log('Aguardando AuthContext carregar...');
+        return;
       }
 
-      console.log("Usuário logado com ID:", user.id);
-
-      const database = await openDB();
-      await initializeDatabase(database);
-      setDb(database);
+      if (!user || !user.iduser) {
+        console.warn('Usuário não logado ou iduser ausente:', { user, loggedIn });
+        Alert.alert('Erro', 'Você precisa estar logado para visualizar suas plantas. Faça login primeiro.');
+        navigation.navigate('Login');
+        return;
+      }
 
       try {
-        console.log("Executando query para buscar plantas do usuário:", user.id);
-        const userPlants = await database.getAllAsync(
-          `SELECT pa.idplant_acc AS id, pa.name, pt.name AS type, pa.creation_date, pa.image 
-           FROM plants_acc pa 
-           JOIN plants p ON pa.plants_idplant = p.idplant 
-           JOIN plant_types pt ON p.plant_types_idplant_type = pt.idplant_type 
-           WHERE pa.users_iduser = ?`,
-          [user.id]
+        console.log('Carregando plantas para o usuário:', user.iduser);
+        const db = await openDatabase();
+        const plantsData = await db.getAllAsync(
+          `SELECT pa.idplants_acc, pa.name, pa.image, pa.creation_date, pa.description, pt.name AS plant_type_name
+           FROM plants_acc pa
+           LEFT JOIN plants p ON pa.idplant = p.idplant
+           LEFT JOIN plant_types pt ON p.plant_type_id = pt.idplant_type
+           WHERE pa.iduser = ?`,
+          [user.iduser]
         );
-
-        console.log("Plantas encontradas:", userPlants);
-
-        setPlants(userPlants.map((plant) => ({
-          id: plant.id,
-          name: plant.name,
-          type: plant.type || "Plant Type",
-          createdAt: new Date(plant.creation_date).toLocaleDateString(),
-          image: plant.image || "https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/820zgqtn.png",
-        })));
+        console.log('Plantas carregadas:', plantsData);
+        setPlants(plantsData);
+        setIsDataLoaded(true);
       } catch (error) {
-        console.error("Erro ao buscar plantas:", error);
-        Alert.alert("Erro", "Falha ao carregar as plantas: " + error.message);
+        console.error('Erro ao carregar plantas:', error);
+        Alert.alert('Erro', `Falha ao carregar suas plantas: ${error.message}`);
       }
     };
+    initialize();
+  }, [user, isLoading, navigation]); // Removido loggedIn da dependência pra evitar re-renderizações
 
-    initializeDbAndFetchPlants().catch((error) => {
-      console.error("Erro ao inicializar banco de dados:", error);
-      Alert.alert("Erro", "Falha ao configurar o banco de dados: " + error.message);
-    });
-  }, [user]);
+  const renderPlantItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.plantItem}
+      onPress={() => navigation.navigate('Plant', { plantId: item.idplants_acc })}
+    >
+      <View style={styles.plantImageContainer}>
+        {item.image && item.image.startsWith('data:image') ? (
+          <Image source={{ uri: item.image }} style={styles.plantImage} />
+        ) : (
+          <Text style={styles.noImageText}>Sem Imagem</Text>
+        )}
+      </View>
+      <View style={styles.plantInfo}>
+        <Text style={styles.plantName}>{item.name}</Text>
+        <Text style={styles.plantType}>Tipo: {item.plant_type_name || 'Desconhecido'}</Text>
+        
+      </View>
+    </TouchableOpacity>
+  );
 
-  const handlePlantPress = (plantId) => {
-    console.log("Navegando para PlantScreen com plantId:", plantId); // Log para depuração
-    if (!plantId) {
-      console.error("plantId é undefined na navegação!");
-      Alert.alert("Erro", "ID da planta inválido.");
-      return;
-    }
-    navigation.navigate('Plant', { plantId });
-  };
+  if (!isDataLoaded || isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Carregando suas plantas...</Text>
+      </View>
+    );
+  }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
-      <ScrollView style={{ flex: 1 }}>
-        <View style={{ backgroundColor: "#FFFFFF", padding: 10 }}>
-          <View style={{ alignItems: "center", marginBottom: 10 }}>
-            <Text style={{ color: "#468585", fontSize: 24 }}>Your Plants</Text>
-          </View>
-          {plants.length === 0 ? (
-            <Text style={{ color: "#468585", textAlign: "center", marginTop: 20 }}>
-              Nenhuma planta encontrada.
-            </Text>
-          ) : (
-            plants.map((plant) => (
-              <TouchableOpacity
-                key={plant.id}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  backgroundColor: "#E9E9F9",
-                  borderRadius: 20,
-                  padding: 10,
-                  marginBottom: 10,
-                  marginHorizontal: 5,
-                }}
-                onPress={() => handlePlantPress(plant.id)}
-              >
-                <Image
-                  source={{ uri: plant.image }}
-                  resizeMode="contain"
-                  style={{ width: 40, height: 40, marginRight: 10 }}
-                />
-                <View>
-                  <Text style={{ color: "#2F2182", fontSize: 16 }}>{plant.name}</Text>
-                  <Text style={{ color: "#468585", fontSize: 14 }}>{plant.type}</Text>
-                  <Text style={{ color: "#468585", fontSize: 12 }}>{plant.createdAt}</Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <View style={styles.container}>
+      <Text style={styles.title}>Suas Plantas</Text>
+      {plants.length === 0 ? (
+        <Text style={styles.emptyText}>Nenhuma planta encontrada. Adicione uma planta!</Text>
+      ) : (
+        <FlatList
+          data={plants}
+          renderItem={renderPlantItem}
+          keyExtractor={item => item.idplants_acc.toString()}
+          contentContainerStyle={[styles.listContainer, { paddingBottom: 80 }]}
+        />
+      )}
+      <TouchableOpacity
+        style={styles.addButton}
+        onPress={() => navigation.navigate('AddPlant')}
+      >
+        <Text style={styles.addButtonText}>Adicionar Nova Planta</Text>
+      </TouchableOpacity>
+      <BottomBar />
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff', padding: 20 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontSize: 18, color: '#468585' },
+  title: { fontSize: 24, color: '#468585', fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+  emptyText: { fontSize: 16, color: '#468585', textAlign: 'center', marginTop: 20 },
+  listContainer: { paddingBottom: 20 },
+  plantItem: {
+    flexDirection: 'row',
+    backgroundColor: '#E9E9F9',
+    padding: 15,
+    borderRadius: 30,
+    marginBottom: 10,
+    borderColor: '#468585',
+    alignItems: 'center',
+  },
+  plantImageContainer: {
+    position: 'relative',
+    width: 80,
+    height: 80,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: '#2F2182',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#2F2182',
+    marginRight: 15,
+  },
+  plantImage: { width: 75, height: 75, borderRadius: 50 },
+  noImageText: { color: '#468585', fontSize: 12 },
+  addIcon: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    backgroundColor: '#468585',
+    color: '#fff',
+    width: 16,
+    height: 16,
+    textAlign: 'center',
+    borderRadius: 8,
+    fontSize: 10,
+  },
+  plantInfo: { flex: 1 },
+  plantName: { fontSize: 18, color: '#2F2182', fontWeight: 'bold' },
+  plantType: { fontSize: 14, color: '#333', marginBottom: 5 },
+  plantDescription: { fontSize: 12, color: '#666' },
+  addButton: {
+    backgroundColor: '#B0A8F0',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    marginTop: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#468585',
+  },
+  addButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+});
