@@ -1,20 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect, useContext } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as SQLite from 'expo-sqlite';
 import * as Crypto from 'expo-crypto';
+import { AuthContext } from '../context/AuthContext';
 
 export default function RegisterScreen({ navigation }) {
+  const { login } = useContext(AuthContext);
   const [db, setDb] = useState(null);
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
-  const [name, setName] = useState(''); // Mudado de fullName pra name
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
-  const [profileImage, setProfileImage] = useState(''); // Novo campo opcional
+  const [profileImage, setProfileImage] = useState('');
   const [loadingDb, setLoadingDb] = useState(true);
 
   useEffect(() => {
     async function initDb() {
       try {
+        console.log('Inicializando banco de dados...');
         const database = await SQLite.openDatabaseAsync('plantifydb.db');
         await database.execAsync(`
           CREATE TABLE IF NOT EXISTS users (
@@ -100,10 +103,10 @@ export default function RegisterScreen({ navigation }) {
           );
         `);
         setDb(database);
-        console.log('Database prepared successfully with all tables');
+        console.log('Banco de dados inicializado com sucesso');
       } catch (error) {
-        console.error('Error preparing database:', error);
-        Alert.alert('Error preparing database');
+        console.error('Erro ao inicializar banco de dados:', error);
+        Alert.alert('Erro', 'Falha ao preparar o banco de dados');
       } finally {
         setLoadingDb(false);
       }
@@ -113,69 +116,85 @@ export default function RegisterScreen({ navigation }) {
 
   const handleRegister = async () => {
     if (!db) {
-      Alert.alert('Database not ready');
+      console.warn('Banco de dados não está pronto');
+      Alert.alert('Erro', 'Banco de dados não está pronto');
       return;
     }
 
     if (!username.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Please fill in all required fields');
+      console.warn('Campos obrigatórios não preenchidos', { username, email, password });
+      Alert.alert('Erro', 'Preencha todos os campos obrigatórios');
       return;
     }
 
     try {
+      console.log('Verificando se o email já está registrado:', email);
       const existingUser = await db.getFirstAsync(
         'SELECT * FROM users WHERE email = ?',
         [email.trim()]
       );
       if (existingUser) {
-        Alert.alert('Error', 'Email already registered');
+        console.warn('Email já registrado:', email);
+        Alert.alert('Erro', 'Email já registrado');
         return;
       }
 
       const createdAt = new Date().toISOString();
-
       const hashedPassword = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
         password.trim()
       );
 
+      console.log('Inserindo novo usuário:', { username, email, name, createdAt });
       const { lastInsertRowId } = await db.runAsync(
         'INSERT INTO users (username, email, name, created_at, password, profile_image) VALUES (?, ?, ?, ?, ?, ?);',
         [username.trim(), email.trim(), name.trim(), createdAt, hashedPassword, profileImage || null]
       );
-      console.log('User registered with ID:', lastInsertRowId);
-      Alert.alert('Registration successful');
+      console.log('Usuário registrado com ID:', lastInsertRowId);
+
+      // Chamar login do AuthContext
+      const userData = {
+        iduser: lastInsertRowId,
+        username: username.trim(),
+        email: email.trim(),
+        name: name.trim() || '',
+        profile_image: profileImage || null,
+      };
+      console.log('Chamando login com userData:', userData);
+      await login(userData);
+
+      Alert.alert('Sucesso', 'Registro concluído com sucesso!');
       setUsername('');
       setEmail('');
       setName('');
       setPassword('');
       setProfileImage('');
-      if (navigation) {
-        navigation.navigate('Login');
-      }
+
+      // Navegar para YourPlants
+      navigation.navigate('YourPlants');
     } catch (error) {
-      console.error('Registration error:', error);
-      Alert.alert('Registration failed', error.message || 'Unknown error');
+      console.error('Erro no registro:', error);
+      Alert.alert('Erro', error.message || 'Falha ao registrar');
     }
   };
 
   if (loadingDb) {
     return (
       <View style={styles.container}>
-        <Text>Preparing database...</Text>
+        <Text style={styles.loadingText}>Preparando banco de dados...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>User Registration</Text>
-
+      <Text style={styles.title}>Criar Conta</Text>
       <TextInput
         style={styles.input}
-        placeholder="Username"
+        placeholder="Nome de Usuário"
         value={username}
         onChangeText={setUsername}
+        autoCapitalize="none"
       />
       <TextInput
         style={styles.input}
@@ -183,28 +202,37 @@ export default function RegisterScreen({ navigation }) {
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
+        autoCapitalize="none"
       />
       <TextInput
         style={styles.input}
-        placeholder="Name" // Mudado de Full Name pra Name
+        placeholder="Nome"
         value={name}
         onChangeText={setName}
       />
       <TextInput
         style={styles.input}
-        placeholder="Password"
+        placeholder="Senha"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        autoCapitalize="none"
       />
       <TextInput
         style={styles.input}
-        placeholder="Profile Image URL (optional)"
+        placeholder="URL da Imagem de Perfil (opcional)"
         value={profileImage}
         onChangeText={setProfileImage}
       />
-
-      <Button title="Register" onPress={handleRegister} />
+      <TouchableOpacity style={styles.button} onPress={handleRegister}>
+        <Text style={styles.buttonText}>Registrar</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.linkButton}
+        onPress={() => navigation.navigate('Login')}
+      >
+        <Text style={styles.linkText}>Já tem uma conta? Faça login</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -217,18 +245,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0fff0',
   },
   title: {
-    fontSize: 24,
-    marginBottom: 24,
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#468585',
     textAlign: 'center',
+    marginBottom: 30,
   },
   input: {
     height: 50,
-    borderColor: '#aaa',
-    borderWidth: 1,
-    marginBottom: 15,
-    paddingHorizontal: 10,
+    borderColor: '#468585',
+    borderWidth: 2,
     borderRadius: 10,
+    marginBottom: 15,
+    paddingHorizontal: 15,
     backgroundColor: '#fff',
+    fontSize: 16,
+    color: '#333',
+  },
+  button: {
+    backgroundColor: '#468585',
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  linkButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  linkText: {
+    color: '#B0A8F0',
+    fontSize: 16,
+    textDecorationLine: 'underline',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#468585',
+    textAlign: 'center',
   },
 });

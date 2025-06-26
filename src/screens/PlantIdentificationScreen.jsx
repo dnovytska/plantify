@@ -5,67 +5,136 @@ import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import BottomBar from '../components/BottomBar';
 import { PLANTNET_API_KEY } from '@env';
+import { openDatabase } from '../DB/db';
 
-export default function PlantIdentificationScreen() {
-  const { user } = useContext(AuthContext);
+export default function PlantIdentificationScreen({ navigation }) {
+  const context = useContext(AuthContext);
   const [imageUri, setImageUri] = useState(null);
   const [identificationResult, setIdentificationResult] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasGalleryPermission, setHasGalleryPermission] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
 
+  if (!context) {
+    console.error('AuthContext não está disponível no PlantIdentificationScreen');
+    return (
+      <View style={styles.container}>
+        <Text>Erro: Contexto de autenticação não disponível.</Text>
+      </View>
+    );
+  }
+
+  const { user, loggedIn, logout } = context;
+
+  console.log('PlantIdentificationScreen - Estado do contexto:', { user, loggedIn });
+
   useEffect(() => {
     (async () => {
+      console.log('Inicializando permissões...');
       const galleryStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
       setHasGalleryPermission(galleryStatus.status === 'granted');
       const cameraStatus = await ImagePicker.requestCameraPermissionsAsync();
       setHasCameraPermission(cameraStatus.status === 'granted');
+      console.log('Permissões iniciais:', { gallery: galleryStatus.status, camera: cameraStatus.status });
 
       if (!galleryStatus.granted || !cameraStatus.granted) {
-        Alert.alert('Permissões Necessárias', 'Conceda permissões para galeria e câmera nas configurações.');
+        Alert.alert('Permissões Necessárias', 'Conceda permissões para galeria e câmera nas configurações do dispositivo.');
       }
     })();
   }, []);
 
+  const checkLogin = async () => {
+    console.log('Verificando login, user:', user, 'loggedIn:', loggedIn);
+    if (!user || !user.iduser) {
+      console.warn('Usuário não logado ou iduser ausente:', { user, loggedIn });
+      Alert.alert('Erro', 'Você precisa estar logado para realizar esta ação. Faça login primeiro.');
+      try {
+        await logout();
+        console.log('Logout chamado para redirecionar para Login');
+      } catch (error) {
+        console.error('Erro ao fazer logout:', error);
+        Alert.alert('Erro', 'Falha ao redirecionar para login.');
+      }
+      return false;
+    }
+    console.log('Usuário logado, prosseguindo:', { iduser: user.iduser, name: user.name });
+    return true;
+  };
+
   const pickImage = async () => {
+    if (!(await checkLogin())) return;
     if (!hasGalleryPermission) {
-      Alert.alert('Erro', 'Permissão para galeria não concedida.');
-      return;
+      console.log('Permissão de galeria não concedida, solicitando novamente...');
+      const galleryStatus = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (galleryStatus.status !== 'granted') {
+        Alert.alert('Erro', 'Permissão para galeria não concedida. Vá para as configurações do dispositivo.');
+        return;
+      }
+      setHasGalleryPermission(true);
     }
     try {
+      console.log('Abrindo galeria...');
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
       });
-      if (result.canceled) return;
+      console.log('Resultado da galeria:', result);
+      if (result.canceled) {
+        console.log('Seleção de imagem cancelada');
+        return;
+      }
       if (result.assets && result.assets.length > 0) {
         setImageUri(result.assets[0].uri);
+        console.log('Imagem selecionada:', result.assets[0].uri);
       } else {
         Alert.alert('Erro', 'Nenhuma imagem válida selecionada.');
       }
     } catch (error) {
       console.error('Erro ao selecionar imagem:', error);
-      Alert.alert('Erro', 'Falha ao acessar a galeria.');
+      Alert.alert('Erro', 'Falha ao acessar a galeria: ' + error.message);
     }
   };
 
   const takePhoto = async () => {
-    if (!hasCameraPermission) {
-      Alert.alert('Erro', 'Permissão para câmera não concedida.');
+    if (!(await checkLogin())) return;
+    console.log('Iniciando takePhoto, verificando permissão da câmera...');
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    console.log('Status da permissão da câmera:', status);
+    if (status !== 'granted') {
+      Alert.alert(
+        'Permissão Negada',
+        'Permissão para câmera não concedida. Vá para as configurações do dispositivo para permitir.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Escolher da Galeria',
+            onPress: pickImage,
+          },
+        ]
+      );
+      setHasCameraPermission(false);
       return;
     }
+    setHasCameraPermission(true);
     try {
+      console.log('Abrindo câmera...');
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,
       });
-      if (result.canceled) return;
+      console.log('Resultado da câmera:', result);
+      if (result.canceled) {
+        console.log('Captura de foto cancelada');
+        return;
+      }
       if (result.assets && result.assets.length > 0) {
-        setImageUri(result.assets[0].uri);
+        const uri = result.assets[0].uri;
+        setImageUri(uri);
+        console.log('Foto tirada:', uri);
       } else {
         Alert.alert('Erro', 'Nenhuma foto válida capturada.');
       }
@@ -76,16 +145,20 @@ export default function PlantIdentificationScreen() {
   };
 
   const identifyPlant = async () => {
+    if (!(await checkLogin())) return;
     if (!imageUri) {
+      console.log('Nenhuma imagem selecionada para identificação');
       Alert.alert('Erro', 'Selecione ou tire uma foto primeiro.');
       return;
     }
     if (!PLANTNET_API_KEY) {
+      console.log('Chave API do Pl@ntNet não configurada');
       Alert.alert('Erro', 'Chave API do Pl@ntNet não configurada.');
       return;
     }
     setIsLoading(true);
     try {
+      console.log('Enviando imagem para Pl@ntNet:', imageUri);
       const formData = new FormData();
       formData.append('images', {
         uri: imageUri,
@@ -99,12 +172,45 @@ export default function PlantIdentificationScreen() {
         formData,
         { headers: { Accept: 'application/json', 'Content-Type': 'multipart/form-data' } }
       );
+      console.log('Resposta da API Pl@ntNet:', resp.data);
 
       const results = resp.data.results;
       if (results && results.length > 0) {
-        setIdentificationResult(results[0].species.scientificNameWithoutAuthor);
+        const scientificName = results[0].species.scientificNameWithoutAuthor;
+        setIdentificationResult(scientificName);
+        console.log('Planta identificada:', scientificName);
+
+        // Criar ou buscar tipo de planta
+        const db = await openDatabase();
+        let plantType = await db.getFirstAsync(
+          'SELECT idplant_type FROM plant_types WHERE name = ?',
+          [scientificName]
+        );
+
+        let plantTypeId = null;
+        if (!plantType) {
+          console.log('Criando novo tipo de planta:', scientificName);
+          const result = await db.runAsync(
+            'INSERT INTO plant_types (name, watering_id, sunlight_id, growth_rate_id, care_level_id) VALUES (?, ?, ?, ?, ?)',
+            [scientificName, 1, 1, 1, 1]
+          );
+          plantTypeId = result.lastInsertRowId;
+          console.log('Novo tipo de planta criado:', { id: plantTypeId, name: scientificName });
+        } else {
+          plantTypeId = plantType.idplant_type;
+          console.log('Tipo de planta encontrado:', { id: plantTypeId, name: scientificName });
+        }
+
+        // Navegar para AddPlant
+        console.log('Navegando para AddPlant com:', { imageUri, plantName: scientificName, plantTypeId });
+        navigation.navigate('AddPlant', {
+          imageUri,
+          plantName: scientificName,
+          plantTypeId,
+        });
       } else {
         setIdentificationResult('Nenhuma planta identificada.');
+        console.log('Nenhuma planta identificada pela API');
       }
     } catch (error) {
       console.error('Erro ao identificar planta:', error);
@@ -132,7 +238,9 @@ export default function PlantIdentificationScreen() {
         <TouchableOpacity style={styles.identifyButton} onPress={identifyPlant} disabled={isLoading}>
           <Text style={styles.identifyButtonText}>{isLoading ? 'Identificando...' : 'Identificar Planta'}</Text>
         </TouchableOpacity>
-        {identificationResult && <Text style={styles.resultText}>Planta: {identificationResult}</Text>}
+        {identificationResult && (
+          <Text style={styles.resultText}>Planta: {identificationResult}</Text>
+        )}
       </ScrollView>
       <BottomBar />
     </View>
