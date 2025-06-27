@@ -85,10 +85,11 @@ function AppNavigator() {
         <AppStack.Screen name="CreateDiseaseScreen" component={CreateDiseaseScreen} />
         <AppStack.Screen name="DiseaseScreen" component={DiseaseScreen} />
       </AppStack.Navigator>
-      <BottomBar />
+      <BottomBar /> {/* Não precisa passar a prop navigation aqui */}
     </>
   );
 }
+
 
 // Navegador raiz
 function RootNavigator() {

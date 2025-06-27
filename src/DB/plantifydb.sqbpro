@@ -1,12 +1,93 @@
-<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="plantifydb.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="0"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="3071"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="care_levels" custom_title="0" dock_id="1" table="4,11:maincare_levels"/><dock_state state="000000ff00000000fd00000001000000020000000000000000fc0100000001fb000000160064006f0063006b00420072006f00770073006500310100000000ffffffff0000011800ffffff000000000000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="SQL 1*">ALTER TABLE diseases_plants_acc ADD COLUMN is_treated INTEGER DEFAULT 0;
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="plantifydb.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="100"/><column_width id="3" width="3071"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><table title="care_levels" custom_title="0" dock_id="1" table="4,11:maincare_levels"/><dock_state state="000000ff00000000fd00000001000000020000000000000000fc0100000001fb000000160064006f0063006b00420072006f00770073006500310100000000ffffffff0000010500ffffff000000000000000000000004000000040000000800000008fc00000000"/><default_encoding codec=""/><browse_table_settings/></tab_browse><tab_sql><sql name="SQL 1*">CREATE TABLE IF NOT EXISTS users (
+  iduser INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  password TEXT NOT NULL,
+  created_at datetime,
+  profile_image TEXT
+);
 
-PRAGMA table_info(diseases_plants_acc);
+
+CREATE TABLE IF NOT EXISTS care_levels (
+  idcare_level INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS growth_rates (
+  idgrowth_rate INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sunlight_levels (
+  idsunlight_level INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS watering_levels (
+  idwatering_level INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS plant_types (
+  idplant_type INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,plant_types_id INTEGER,
+  watering_id INTEGER,
+  sunlight_id INTEGER,
+  growth_rate_id INTEGER,
+  care_level_id INTEGER,
+  FOREIGN KEY (watering_id) REFERENCES watering_levels(idwatering_levels),
+  FOREIGN KEY (sunlight_id) REFERENCES sunlight_levels(idsunlight_levels),
+  FOREIGN KEY (growth_rate_id) REFERENCES growth_rates(idgrowth_rates),
+  FOREIGN KEY (care_level_id) REFERENCES care_levels(idcare_levels)
+);
+
+CREATE TABLE IF NOT EXISTS plants (
+  idplant INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  image TEXT,
+  plant_type_id INTEGER,
+  FOREIGN KEY (plant_type_id) REFERENCES plant_types(plant_types)
+);
+
+CREATE TABLE IF NOT EXISTS plants_acc (
+  idplants_acc INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  creation_date TEXT NOT NULL,
+  description TEXT,
+  image TEXT,
+  iduser INTEGER,
+  idplant INTEGER,
+  FOREIGN KEY (iduser) REFERENCES users(iduser),
+  FOREIGN KEY (idplant) REFERENCES plants(idplant)
+);
+
+CREATE TABLE IF NOT EXISTS diseases (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  description TEXT
+);
 
 CREATE TABLE IF NOT EXISTS diseases_plants_acc (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
   plants_acc_id INTEGER,
   disease_id INTEGER,
-  is_treated INTEGER DEFAULT 0,
-  PRIMARY KEY (plants_acc_id, disease_id),
+  is_threated INTEGER DEFAULT 0,
   FOREIGN KEY (plants_acc_id) REFERENCES plants_acc(idplants_acc),
   FOREIGN KEY (disease_id) REFERENCES diseases(id)
+);
+
+CREATE TABLE IF NOT EXISTS notification_types(
+idnotification_type INTEGER PRIMARY KEY AUTOINCREMENT,
+notification_type TEXT
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  idnotification INTEGER PRIMARY KEY AUTOINCREMENT,
+  idplants_acc INTEGER,
+  message TEXT NOT NULL,
+  due_date TEXT,
+  is_read INTEGER DEFAULT 0,
+  id_notification_type INTEGER,
+  FOREIGN KEY (idplants_acc) REFERENCES plants_acc(idplants_acc)
+  FOREIGN KEY (id_notification_type) REFERENCES notification_types(idnotification_type)
 );</sql><current_tab id="0"/></tab_sql></sqlb_project>

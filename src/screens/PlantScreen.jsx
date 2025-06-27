@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { SafeAreaView, View, ScrollView, Image, Text, Alert, StyleSheet, TouchableOpacity } from "react-native";
+import { SafeAreaView, View, ScrollView, Image, Text, Alert, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import BottomBar from '../components/BottomBar';
 import { openDatabase, initializeDatabase } from "../DB/db";
@@ -26,6 +26,7 @@ export default function PlantScreen() {
   const [activeTaskView, setActiveTaskView] = useState('Pending');
   const [tasks, setTasks] = useState([]);
   const [diseases, setDiseases] = useState([]);
+  const scrollY = new Animated.Value(0); // Valor animado para scroll
 
   const fetchPlantDetails = useCallback(async () => {
     if (!plantId) {
@@ -95,7 +96,7 @@ export default function PlantScreen() {
       setTasks(organizedTasks);
 
       const diseaseData = await database.getAllAsync(
-        `SELECT d.id, d.name, d.description, dpa.is_treated
+        `SELECT d.id, d.name, d.description
          FROM diseases_plants_acc dpa
          JOIN diseases d ON dpa.disease_id = d.id
          WHERE dpa.plants_acc_id = ?`,
@@ -106,7 +107,6 @@ export default function PlantScreen() {
         id: disease.id,
         name: disease.name,
         description: disease.description || "Sem descrição",
-        isTreated: disease.is_treated === 1, // Assume 1 = true, 0 = false
       })));
 
     } catch (error) {
@@ -196,28 +196,38 @@ export default function PlantScreen() {
     navigation.navigate('CreateDiseaseScreen', { plantId });
   };
 
+  const handleAddTaskPress = () => {
+    navigation.navigate('CreateTaskScreen', { plantId });
+  };
+
   const handleMarkHealthy = async (diseaseId) => {
     if (!db) {
       Alert.alert('Erro', 'Banco de dados não inicializado.');
       return;
     }
 
-    try {
-      await db.runAsync(
-        'UPDATE diseases_plants_acc SET is_treated = 1 WHERE disease_id = ? AND plants_acc_id = ?',
-        [diseaseId, plantId]
-      );
-      Alert.alert('Sucesso', 'Planta marcada como saudável!');
-      await fetchPlantDetails();
-    } catch (error) {
-      console.error('Erro ao marcar como saudável:', error);
-      Alert.alert('Erro', `Falha ao atualizar o estado: ${error.message}`);
-    }
-  };
-
-  const handleTaskPress = (task) => {
-    // Implementar lógica para editar tarefa, se desejado
-    console.log("Tarefa pressionada:", task);
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Ao marcar esta doença como tratada, a planta será removida. Deseja continuar?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Remover a planta do banco de dados
+              await db.runAsync('DELETE FROM plants_acc WHERE idplants_acc = ?', [plantId]);
+              Alert.alert('Sucesso', 'Planta removida com sucesso!');
+              navigation.goBack(); // Voltar para a tela anterior
+            } catch (error) {
+              console.error('Erro ao remover planta:', error);
+              Alert.alert('Erro', `Falha ao remover a planta: ${error.message}`);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (!plant) {
@@ -238,14 +248,43 @@ export default function PlantScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
       >
         <View style={styles.content}>
-          <Image
+          <Animated.Image
             source={{ uri: plant.image }}
             resizeMode="contain"
-            style={styles.image}
+            style={{
+              ...styles.image,
+              transform: [
+                {
+                  translateX: scrollY.interpolate({
+                    inputRange: [0, 200],
+                    outputRange: [0, -50],
+                    extrapolate: 'clamp',
+                  }),
+                },
+                {
+                  scale: scrollY.interpolate({
+                    inputRange: [0, 200],
+                    outputRange: [1, 0.8],
+                    extrapolate: 'clamp',
+                  }),
+                },
+              ],
+            }}
           />
-          <View style={styles.plantInfoContainer}>
+          <Animated.View style={{
+            ...styles.plantInfoContainer,
+            opacity: scrollY.interpolate({
+              inputRange: [0, 200],
+              outputRange: [1, 0.5],
+              extrapolate: 'clamp',
+            }),
+          }}>
             <Text style={styles.title}>{plant.name}</Text>
             <Text style={styles.detail}>Tipo: {plant.type}</Text>
             <Text style={styles.detail}>Data de Criação: {plant.createdAt}</Text>
@@ -254,7 +293,7 @@ export default function PlantScreen() {
             <Text style={styles.detail}>Luz Solar: {plant.sunlight}</Text>
             <Text style={styles.detail}>Taxa de Crescimento: {plant.growthRate}</Text>
             <Text style={styles.detail}>Nível de Cuidado: {plant.careLevel}</Text>
-          </View>
+          </Animated.View>
 
           {diseases.length > 0 && (
             <Text style={styles.diseaseAlert}>⚠️ Esta planta está doente!</Text>
@@ -274,6 +313,13 @@ export default function PlantScreen() {
               <Text style={[styles.buttonText, activeTab === 'Diseases' && styles.activeButtonText]}>Doenças</Text>
             </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={styles.addTaskButton}
+            onPress={handleAddTaskPress}
+          >
+            <Text style={styles.addTaskButtonText}>Adicionar Tarefa</Text>
+          </TouchableOpacity>
 
           {activeTab === 'Tasks' && (
             <View style={styles.section}>
@@ -368,10 +414,10 @@ export default function PlantScreen() {
               </TouchableOpacity>
 
               <Text style={styles.sectionTitle}>Doenças Atuais</Text>
-              {diseases.filter(disease => !disease.isTreated).length === 0 ? (
+              {diseases.length === 0 ? (
                 <Text style={styles.noItems}>Nenhuma doença encontrada.</Text>
               ) : (
-                diseases.filter(disease => !disease.isTreated).map((disease) => (
+                diseases.map((disease) => (
                   <View key={disease.id} style={styles.item}>
                     <Text style={styles.itemName}>{disease.name}</Text>
                     <Text style={styles.itemDetail}>{disease.description}</Text>
@@ -392,18 +438,6 @@ export default function PlantScreen() {
                   </View>
                 ))
               )}
-
-              <Text style={styles.sectionTitle}>Histórico de Doenças</Text>
-              {diseases.filter(disease => disease.isTreated).length === 0 ? (
-                <Text style={styles.noItems}>Nenhuma doença tratada encontrada.</Text>
-              ) : (
-                diseases.filter(disease => disease.isTreated).map((disease) => (
-                  <View key={disease.id} style={styles.item}>
-                    <Text style={styles.itemName}>{disease.name}</Text>
-                    <Text style={styles.itemDetail}>{disease.description}</Text>
-                  </View>
-                ))
-              )}
             </View>
           )}
         </View>
@@ -414,7 +448,7 @@ export default function PlantScreen() {
       >
         <Text style={styles.editButtonText}>✏️</Text>
       </TouchableOpacity>
-      <BottomBar />
+      <BottomBar navigation={navigation} />
     </SafeAreaView>
   );
 }
@@ -423,11 +457,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
   },
   scrollView: {
     flex: 1,
@@ -467,7 +496,7 @@ const styles = StyleSheet.create({
   },
   diseaseAlert: {
     fontSize: 18,
-    color: "#FF0000",
+    color: "#FF 0000",
     marginBottom: 10,
   },
   buttons: {
@@ -590,6 +619,18 @@ const styles = StyleSheet.create({
     borderColor: "#468585",
   },
   addDiseaseButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  addTaskButton: {
+    backgroundColor: "#B0E0E6",
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  addTaskButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
     fontWeight: "bold",
