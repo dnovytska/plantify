@@ -23,7 +23,7 @@ export default function PlantScreen() {
   const [plant, setPlant] = useState(null);
   const [db, setDb] = useState(null);
   const [activeTab, setActiveTab] = useState('Tasks');
-  const [activeTaskView, setActiveTaskView] = useState('Pending'); // Para controlar a visualização das tarefas
+  const [activeTaskView, setActiveTaskView] = useState('Pending');
   const [tasks, setTasks] = useState([]);
   const [diseases, setDiseases] = useState([]);
 
@@ -39,7 +39,6 @@ export default function PlantScreen() {
     setDb(database);
 
     try {
-      // Fetch plant details
       const plantData = await database.getFirstAsync(
         `SELECT pa.idplants_acc, pa.name, pa.creation_date, pa.description, pa.image,
                 pt.name AS type_name, wl.name AS watering_name, sl.name AS sunlight_name, 
@@ -74,7 +73,6 @@ export default function PlantScreen() {
         careLevel: plantData.care_level_name || "Unknown",
       });
 
-      // Fetch tasks from notifications table
       const taskData = await database.getAllAsync(
         `SELECT n.idnotification AS id, n.message AS name, n.due_date, n.is_read,
                 nt.notification_type
@@ -84,7 +82,6 @@ export default function PlantScreen() {
         [plantId]
       );
 
-      // Organize tasks by due date and separate completed tasks
       const organizedTasks = taskData.map((task) => ({
         id: task.id,
         name: task.name,
@@ -93,14 +90,12 @@ export default function PlantScreen() {
         isRead: task.is_read,
       }));
 
-      // Sort tasks by due date (ascending)
       organizedTasks.sort((a, b) => (a.dueDate - b.dueDate));
 
       setTasks(organizedTasks);
 
-      // Fetch diseases from diseases_plants_acc and diseases tables
       const diseaseData = await database.getAllAsync(
-        `SELECT d.id, d.name, d.description
+        `SELECT d.id, d.name, d.description, dpa.is_treated
          FROM diseases_plants_acc dpa
          JOIN diseases d ON dpa.disease_id = d.id
          WHERE dpa.plants_acc_id = ?`,
@@ -111,6 +106,7 @@ export default function PlantScreen() {
         id: disease.id,
         name: disease.name,
         description: disease.description || "Sem descrição",
+        isTreated: disease.is_treated === 1, // Assume 1 = true, 0 = false
       })));
 
     } catch (error) {
@@ -147,7 +143,7 @@ export default function PlantScreen() {
             try {
               await db.runAsync('DELETE FROM notifications WHERE idnotification = ?', [taskId]);
               Alert.alert('Sucesso', 'Tarefa apagada com sucesso!');
-              await fetchPlantDetails(); // Atualiza a lista de tarefas
+              await fetchPlantDetails();
             } catch (error) {
               console.error('Erro ao apagar tarefa:', error);
               Alert.alert('Erro', `Falha ao apagar a tarefa: ${error.message}`);
@@ -185,7 +181,7 @@ export default function PlantScreen() {
             try {
               await db.runAsync('DELETE FROM diseases_plants_acc WHERE disease_id = ? AND plants_acc_id = ?', [diseaseId, plantId]);
               Alert.alert('Sucesso', 'Doença apagada com sucesso!');
-              await fetchPlantDetails(); // Atualiza a lista de doenças
+              await fetchPlantDetails();
             } catch (error) {
               console.error('Erro ao apagar doença:', error);
               Alert.alert('Erro', `Falha ao apagar a doença: ${error.message}`);
@@ -197,7 +193,31 @@ export default function PlantScreen() {
   };
 
   const handleAddDiseasePress = () => {
-    navigation.navigate('CreateDiseaseScreen', { plantId }); // Navega para a tela de criação de doenças
+    navigation.navigate('CreateDiseaseScreen', { plantId });
+  };
+
+  const handleMarkHealthy = async (diseaseId) => {
+    if (!db) {
+      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      return;
+    }
+
+    try {
+      await db.runAsync(
+        'UPDATE diseases_plants_acc SET is_treated = 1 WHERE disease_id = ? AND plants_acc_id = ?',
+        [diseaseId, plantId]
+      );
+      Alert.alert('Sucesso', 'Planta marcada como saudável!');
+      await fetchPlantDetails();
+    } catch (error) {
+      console.error('Erro ao marcar como saudável:', error);
+      Alert.alert('Erro', `Falha ao atualizar o estado: ${error.message}`);
+    }
+  };
+
+  const handleTaskPress = (task) => {
+    // Implementar lógica para editar tarefa, se desejado
+    console.log("Tarefa pressionada:", task);
   };
 
   if (!plant) {
@@ -208,9 +228,9 @@ export default function PlantScreen() {
     );
   }
 
-  // Separate tasks into completed and pending
   const completedTasks = tasks.filter(task => task.isRead);
   const pendingTasks = tasks.filter(task => !task.isRead);
+  const overdueTasks = pendingTasks.filter(task => task.dueDate && task.dueDate < new Date());
 
   return (
     <SafeAreaView style={styles.container}>
@@ -225,14 +245,16 @@ export default function PlantScreen() {
             resizeMode="contain"
             style={styles.image}
           />
-          <Text style={styles.title}>{plant.name}</Text>
-          <Text style={styles.detail}>Tipo: {plant.type}</Text>
-          <Text style={styles.detail}>Data de Criação: {plant.createdAt}</Text>
-          <Text style={styles.detail}>Descrição: {plant.description}</Text>
-          <Text style={styles.detail}>Rega: {plant.watering}</Text>
-          <Text style={styles.detail}>Luz Solar: {plant.sunlight}</Text>
-          <Text style={styles.detail}>Taxa de Crescimento: {plant.growthRate}</Text>
-          <Text style={styles.detail}>Nível de Cuidado: {plant.careLevel}</Text>
+          <View style={styles.plantInfoContainer}>
+            <Text style={styles.title}>{plant.name}</Text>
+            <Text style={styles.detail}>Tipo: {plant.type}</Text>
+            <Text style={styles.detail}>Data de Criação: {plant.createdAt}</Text>
+            <Text style={styles.detail}>Descrição: {plant.description}</Text>
+            <Text style={styles.detail}>Rega: {plant.watering}</Text>
+            <Text style={styles.detail}>Luz Solar: {plant.sunlight}</Text>
+            <Text style={styles.detail}>Taxa de Crescimento: {plant.growthRate}</Text>
+            <Text style={styles.detail}>Nível de Cuidado: {plant.careLevel}</Text>
+          </View>
 
           {diseases.length > 0 && (
             <Text style={styles.diseaseAlert}>⚠️ Esta planta está doente!</Text>
@@ -285,7 +307,7 @@ export default function PlantScreen() {
                       >
                         <View style={styles.taskContent}>
                           <Text style={styles.itemName}>{task.name}</Text>
-                          <Text style={styles.itemDetail}>Data: {task.dueDate.toLocaleString()}</Text>
+                          <Text style={styles.itemDetail}>Data: {task.dueDate?.toLocaleString() || 'Sem data'}</Text>
                           <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
                           <Text style={styles.itemDetail}>Status: Pendente</Text>
                         </View>
@@ -310,12 +332,26 @@ export default function PlantScreen() {
                     completedTasks.map((task) => (
                       <View key={task.id} style={styles.item}>
                         <Text style={styles.itemName}>{task.name}</Text>
-                        <Text style={styles.itemDetail}>Data: {task.dueDate.toLocaleString()}</Text>
+                        <Text style={styles.itemDetail}>Data: {task.dueDate?.toLocaleString() || 'Sem data'}</Text>
                         <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
                         <Text style={styles.itemDetail}>Status: Concluída</Text>
                       </View>
                     ))
                   )}
+                </>
+              )}
+
+              {overdueTasks.length > 0 && (
+                <>
+                  <Text style={styles.sectionTitle}>Tarefas Atrasadas</Text>
+                  {overdueTasks.map((task) => (
+                    <View key={task.id} style={styles.item}>
+                      <Text style={styles.itemName}>{task.name}</Text>
+                      <Text style={styles.itemDetail}>Data: {task.dueDate?.toLocaleString() || 'Sem data'}</Text>
+                      <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
+                      <Text style={styles.itemDetail}>Status: Atrasada</Text>
+                    </View>
+                  ))}
                 </>
               )}
             </View>
@@ -330,27 +366,41 @@ export default function PlantScreen() {
               >
                 <Text style={styles.addDiseaseButtonText}>Adicionar Doença</Text>
               </TouchableOpacity>
-              {diseases.length === 0 ? (
+
+              <Text style={styles.sectionTitle}>Doenças Atuais</Text>
+              {diseases.filter(disease => !disease.isTreated).length === 0 ? (
                 <Text style={styles.noItems}>Nenhuma doença encontrada.</Text>
               ) : (
-                diseases.map((disease) => (
+                diseases.filter(disease => !disease.isTreated).map((disease) => (
                   <View key={disease.id} style={styles.item}>
                     <Text style={styles.itemName}>{disease.name}</Text>
                     <Text style={styles.itemDetail}>{disease.description}</Text>
                     <View style={styles.diseaseButtons}>
                       <TouchableOpacity
-                        style={styles.completeButton}
+                        style={styles.squareButton}
                         onPress={() => handleMarkHealthy(disease.id)}
                       >
-                        <Text style={styles.completeButtonText}>✅ Marcar como Saudável</Text>
+                        <Text style={styles.squareButtonText}>✅</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={styles.deleteButton}
+                        style={styles.squareButton}
                         onPress={() => handleDeleteDisease(disease.id)}
                       >
-                        <Text style={styles.completeButtonText}>🗑️ Apagar</Text>
+                        <Text style={styles.squareButtonText}>🗑️</Text>
                       </TouchableOpacity>
                     </View>
+                  </View>
+                ))
+              )}
+
+              <Text style={styles.sectionTitle}>Histórico de Doenças</Text>
+              {diseases.filter(disease => disease.isTreated).length === 0 ? (
+                <Text style={styles.noItems}>Nenhuma doença tratada encontrada.</Text>
+              ) : (
+                diseases.filter(disease => disease.isTreated).map((disease) => (
+                  <View key={disease.id} style={styles.item}>
+                    <Text style={styles.itemName}>{disease.name}</Text>
+                    <Text style={styles.itemDetail}>{disease.description}</Text>
                   </View>
                 ))
               )}
@@ -397,6 +447,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
   },
+  plantInfoContainer: {
+    backgroundColor: "#F0F8FF",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+    width: "100%",
+  },
   title: {
     fontSize: 24,
     color: "#468585",
@@ -413,33 +470,28 @@ const styles = StyleSheet.create({
     color: "#FF0000",
     marginBottom: 10,
   },
-  addTaskButton: {
+  buttons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 20,
+  },
+  button: {
+    flex: 1,
+    padding: 10,
+    backgroundColor: "#E0E0E0",
+    borderRadius: 5,
+    marginHorizontal: 5,
+    alignItems: "center",
+  },
+  activeButton: {
     backgroundColor: "#468585",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    marginBottom: 20,
-    width: "100%",
-    alignItems: "center",
   },
-  addTaskButtonText: {
+  buttonText: {
+    color: "#2F2182",
+  },
+  activeButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  addDiseaseButton: {
-    backgroundColor: "#FFA500",
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    marginBottom: 20,
-    width: "100%",
-    alignItems: "center",
-  },
-  addDiseaseButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
   },
   section: {
     width: "100%",
@@ -468,35 +520,30 @@ const styles = StyleSheet.create({
   },
   itemDetail: {
     fontSize: 14,
-    color: "#468 585",
+    color: "#468585",
   },
   noItems: {
     fontSize: 16,
     color: "#468585",
     textAlign: "center",
   },
-  buttons: {
+  taskViewButtons: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    width: "100%",
-    marginBottom: 20,
+    justifyContent: "space-around",
+    marginBottom: 10,
   },
-  button: {
-    flex: 1,
-    padding: 10,
+  taskViewButton: {
     backgroundColor: "#E0E0E0",
+    padding: 10,
     borderRadius: 5,
-    marginHorizontal: 5,
+    flex: 1,
     alignItems: "center",
   },
-  activeButton: {
+  activeTaskViewButton: {
     backgroundColor: "#468585",
   },
-  buttonText: {
+  taskViewButtonText: {
     color: "#2F2182",
-  },
-  activeButtonText: {
-    color: "#FFFFFF",
   },
   editButton: {
     position: "absolute",
@@ -520,37 +567,47 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
   },
-  completeButton: {
+  squareButton: {
     backgroundColor: "#468585",
-    padding: 5,
+    width: 40,
+    height: 40,
     borderRadius: 5,
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 5,
   },
-  completeButtonText: {
+  squareButtonText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 16,
   },
-  deleteButton: {
-    backgroundColor: "#F44336",
-    padding: 5,
-    borderRadius: 5,
-  },
-  taskViewButtons: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 10,
-  },
-  taskViewButton: {
-    backgroundColor: "#E0E0E0",
+  addDiseaseButton: {
+    backgroundColor: "#B0A8F0",
     padding: 10,
     borderRadius: 5,
-    flex: 1,
+    marginBottom: 10,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#468585",
+  },
+  addDiseaseButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  taskButton: {
+    padding: 5,
+    borderRadius: 5,
     alignItems: "center",
   },
-  activeTaskViewButton: {
-    backgroundColor: "#468585",
+  deleteButton: {
+    backgroundColor: "#FF4444",
   },
-  taskViewButtonText: {
-    color: "#2F2182",
+  taskButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+  },
+  diseaseButtons: {
+    flexDirection: "row",
+    marginTop: 5,
   },
 });

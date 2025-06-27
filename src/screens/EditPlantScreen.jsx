@@ -1,702 +1,462 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView, Modal } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as FileSystem from 'expo-file-system';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback } from "react";
+import { SafeAreaView, View, ScrollView, Image, Text, Alert, StyleSheet, TouchableOpacity } from "react-native";
+import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import BottomBar from '../components/BottomBar';
-import RNPickerSelect from 'react-native-picker-select';
-import { openDatabase, initializeDatabase } from '../DB/db';
-import debounce from 'lodash/debounce';
+import { openDatabase, initializeDatabase } from "../DB/db";
 
-export default function EditPlantScreen() {
+const openDB = async () => {
+  try {
+    const db = await openDatabase();
+    console.log("Banco de dados aberto com sucesso!");
+    return db;
+  } catch (error) {
+    console.error("Erro ao abrir banco de dados:", error);
+    Alert.alert("Erro", "Falha ao inicializar o banco de dados SQLite.");
+    throw error;
+  }
+};
+
+export default function PlantScreen() {
   const route = useRoute();
   const { plantId } = route.params || {};
   const navigation = useNavigation();
-  const [plantName, setPlantName] = useState('');
-  const [description, setDescription] = useState(null);
-  const [creationDate, setCreationDate] = useState('');
-  const [plantTypeId, setPlantTypeId] = useState(null);
-  const [plantTypesByType, setPlantTypesByType] = useState({});
-  const [selectedPlantType, setSelectedPlantType] = useState(null);
-  const [filteredPlantTypes, setFilteredPlantTypes] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [imageUri, setImageUri] = useState(null);
-  const [originalImageUri, setOriginalImageUri] = useState(null);
+  const [plant, setPlant] = useState(null);
   const [db, setDb] = useState(null);
-  const [isDataLoaded, setIsDataLoaded] = useState(true);
-  const [newPlantTypeName, setNewPlantTypeName] = useState('');
-  const [newPlantWatering, setNewPlantWatering] = useState('');
-  const [newPlantSunlight, setNewPlantSunlight] = useState('');
-  const [newPlantGrowthRate, setNewPlantGrowthRate] = useState('');
-  const [newPlantCareLevel, setNewPlantCareLevel] = useState('');
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('Tasks');
+  const [activeTaskView, setActiveTaskView] = useState('Pending');
+  const [tasks, setTasks] = useState([]);
+  const [diseases, setDiseases] = useState([]);
 
-  const wateringOptions = ['Low', 'Moderate', 'Regular'];
-  const sunlightOptions = ['Full Sun', 'Partial Sun', 'Shade'];
-  const growthRateOptions = ['Slow', 'Medium', 'Fast'];
-  const careLevelOptions = ['Easy', 'Moderate', 'High'];
-
-  useEffect(() => {
-    const fetchPlantDetails = async () => {
-      if (!plantId) {
-        console.error('plantId é undefined na EditPlantScreen!');
-        Alert.alert('Erro', 'ID da planta não fornecido.');
-        return;
-      }
-
-      try {
-        const database = await openDatabase();
-        await initializeDatabase(database);
-        setDb(database);
-
-        console.log('Buscando detalhes da planta para edição com ID:', plantId);
-        const plantData = await database.getFirstAsync(
-          `SELECT pa.idplants_acc, pa.name, pa.creation_date, pa.description, pa.image,
-                  pt.idplant_type, pt.name AS type_name, wl.name AS watering_name,
-                  sl.name AS sunlight_name, gr.name AS growth_rate_name, cl.name AS care_level_name
-           FROM plants_acc pa
-           JOIN plants p ON pa.idplant = p.idplant
-           JOIN plant_types pt ON p.plant_type_id = pt.idplant_type
-           LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
-           LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
-           LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
-           LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
-           WHERE pa.idplants_acc = ?`,
-          [plantId]
-        );
-
-        if (!plantData) {
-          console.log('Planta não encontrada com ID:', plantId);
-          Alert.alert('Erro', 'Planta não encontrada.');
-          return;
-        }
-
-        console.log('Dados da planta encontrados para edição:', plantData);
-
-        setPlantName(plantData.name || '');
-        setDescription(plantData.description || '');
-        setCreationDate(new Date(plantData.creation_date).toISOString().split('T')[0]);
-        const image = plantData.image || null;
-        setImageUri(image);
-        setOriginalImageUri(image);
-        setPlantTypeId(plantData.idplant_type);
-        setSelectedPlantType({
-          idplant_type: plantData.idplant_type,
-          name: plantData.type_name,
-          type: (plantData.watering_name?.toLowerCase() || plantData.sunlight_name?.toLowerCase() ||
-                 plantData.growth_rate_name?.toLowerCase() || plantData.care_level_name?.toLowerCase() || 'unknown'),
-          watering: plantData.watering_name || 'Unknown',
-          sunlight: plantData.sunlight_name || 'Unknown',
-          growth_rate: plantData.growth_rate_name || 'Unknown',
-          care_level: plantData.care_level_name || 'Unknown',
-        });
-
-        await loadPlantTypesFromLocalDb(database);
-        setIsDataLoaded(true);
-      } catch (error) {
-        console.error('Erro ao buscar detalhes da planta para edição:', error);
-        Alert.alert('Erro', `Falha ao carregar os detalhes da planta: ${error.message}`);
-      }
-    };
-
-    fetchPlantDetails();
-  }, [plantId]);
-
-  const loadPlantTypesFromLocalDb = async (database, type = null) => {
-    try {
-      const dbToUse = database || db;
-      if (!dbToUse) {
-        console.log('Banco de dados não inicializado');
-        return {};
-      }
-
-      const query = type
-        ? `
-          SELECT pt.*,
-                 wl.name as watering_name,
-                 sl.name as sunlight_name,
-                 gr.name as growth_rate_name,
-                 cl.name as care_level_name
-          FROM plant_types pt
-          LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
-          LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
-          LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
-          LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
-          WHERE LOWER(wl.name) = ? OR LOWER(sl.name) = ? OR LOWER(gr.name) = ? OR LOWER(cl.name) = ?
-        `
-        : `
-          SELECT pt.*,
-                 wl.name as watering_name,
-                 sl.name as sunlight_name,
-                 gr.name as growth_rate_name,
-                 cl.name as care_level_name
-          FROM plant_types pt
-          LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
-          LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
-          LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
-          LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
-        `;
-      const params = type ? [type.toLowerCase(), type.toLowerCase(), type.toLowerCase(), type.toLowerCase()] : [];
-
-      console.log('Executando query:', query, 'com params:', params);
-      const localTypes = await dbToUse.getAllAsync(query, params);
-      console.log('Resultados do banco:', localTypes);
-
-      const typesByCategory = localTypes.reduce((acc, plantType) => {
-        const typeCategory = (plantType.watering_name?.toLowerCase() || plantType.sunlight_name?.toLowerCase() ||
-                             plantType.growth_rate_name?.toLowerCase() || plantType.care_level_name?.toLowerCase() || 'unknown');
-        if (!acc[typeCategory]) {
-          acc[typeCategory] = [];
-        }
-        acc[typeCategory].push({
-          idplant_type: plantType.idplant_type,
-          name: plantType.name,
-          type: typeCategory,
-          watering: plantType.watering_name || 'Unknown',
-          sunlight: plantType.sunlight_name || 'Unknown',
-          growth_rate: plantType.growth_rate_name || 'Unknown',
-          care_level: plantType.care_level_name || 'Unknown',
-        });
-        return acc;
-      }, {});
-
-      console.log('Tipos agrupados por categoria:', typesByCategory);
-      setPlantTypesByType(typesByCategory);
-
-      return typesByCategory;
-    } catch (error) {
-      console.error('Erro ao carregar tipos de plantas do banco local:', error);
-      Alert.alert('Erro', `Não foi possível carregar os tipos de plantas do banco local. Detalhes: ${error.message}`);
-      return {};
-    }
-  };
-
-  const filterPlantTypes = useCallback(
-    debounce((query, selectedType, typesByType) => {
-      if (Object.keys(typesByType).length === 0) {
-        console.log('Nenhum dado de plantas disponível');
-        setFilteredPlantTypes([]);
-        return;
-      }
-
-      let typesToFilter = [];
-      if (!selectedType) {
-        console.log('Buscando em todas as plantas');
-        typesToFilter = Object.values(typesByType).flat();
-      } else {
-        console.log('Buscando tipo selecionado:', selectedType.type);
-        typesToFilter = typesByType[selectedType.type] || [];
-      }
-
-      if (query.trim() === '') {
-        setFilteredPlantTypes(typesToFilter);
-      } else {
-        const filtered = typesToFilter.filter(type =>
-          type.name.toLowerCase().includes(query.toLowerCase())
-        );
-        setFilteredPlantTypes(filtered);
-      }
-    }, 300),
-    []
-  );
-
-  useEffect(() => {
-    filterPlantTypes(searchQuery, selectedPlantType, plantTypesByType);
-  }, [searchQuery, selectedPlantType, plantTypesByType, filterPlantTypes]);
-
-  useEffect(() => {
-    if (plantTypeId && filteredPlantTypes.length > 0) {
-      const selectedPlant = filteredPlantTypes.find(p => p.idplant_type === plantTypeId);
-      if (selectedPlant && selectedPlant !== selectedPlantType) {
-        setSelectedPlantType(selectedPlant);
-      }
-    }
-  }, [plantTypeId, filteredPlantTypes]);
-
-  const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permissionResult.granted) {
-      Alert.alert('Permissão negada', 'É necessário permitir o acesso à galeria para selecionar uma imagem.');
+  const fetchPlantDetails = useCallback(async () => {
+    if (!plantId) {
+      console.error("plantId é undefined na PlantScreen!");
+      Alert.alert("Erro", "ID da planta não fornecido.");
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!db) {
-      Alert.alert('Erro', 'Banco de dados não inicializado. Tente novamente.');
-      return;
-    }
-
-    if (!plantName.trim() || !plantTypeId || !imageUri) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios (incluindo a imagem).');
-      return;
-    }
+    const database = await openDB();
+    await initializeDatabase(database);
+    setDb(database);
 
     try {
-      let imageBlob = imageUri;
-      // Only process image if it has changed
-      if (imageUri !== originalImageUri && !imageUri.startsWith('data:image')) {
-        console.log('Convertendo nova imagem para Base64');
-        const imageData = await FileSystem.readAsStringAsync(imageUri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-        imageBlob = `data:image/jpeg;base64,${imageData}`;
-      }
-
-      // Use a transaction for atomic updates
-      await db.withTransactionAsync(async () => {
-        // Verify plant record exists
-        const plantRecord = await db.getFirstAsync(
-          `SELECT idplant FROM plants_acc WHERE idplants_acc = ?`,
-          [plantId]
-        );
-
-        if (!plantRecord) {
-          throw new Error('Registro da planta não encontrado no plants_acc.');
-        }
-
-        // Update plants table
-        await db.runAsync(
-          `UPDATE plants SET name = ?, image = ?, plant_type_id = ?
-           WHERE idplant = ?`,
-          [plantName.trim(), imageBlob, plantTypeId, plantRecord.idplant]
-        );
-
-        // Update plants_acc table
-        await db.runAsync(
-          `UPDATE plants_acc SET name = ?, description = ?, image = ?
-           WHERE idplants_acc = ?`,
-          [plantName.trim(), description || '', imageBlob, plantId]
-        );
-
-        console.log('Planta atualizada com sucesso no banco de dados.');
-      });
-
-      Alert.alert('Sucesso', 'Planta atualizada com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.navigate('PlantScreen', { plantId }),
-        },
-      ]);
-    } catch (error) {
-      console.error('Erro ao salvar a planta:', error);
-      Alert.alert('Erro', `Falha ao salvar a planta: ${error.message}`);
-    }
-  };
-
-  const handleSelectPlantType = (type) => {
-    console.log('Selecionando tipo:', type);
-    setSelectedPlantType({ type, name: type.charAt(0).toUpperCase() + type.slice(1) });
-    setPlantTypeId(null);
-    setSearchQuery('');
-  };
-
-  const handleCreatePlantType = async () => {
-    if (!db) {
-      Alert.alert('Erro', 'Banco de dados não inicializado. Tente novamente.');
-      return;
-    }
-
-    if (!newPlantTypeName.trim()) {
-      Alert.alert('Erro', 'Por favor, preencha pelo menos o nome do tipo de planta.');
-      return;
-    }
-
-    try {
-      const watering = await db.getFirstAsync('SELECT idwatering_level FROM watering_levels WHERE name = ?', [newPlantWatering || 'Moderate']);
-      const sunlight = await db.getFirstAsync('SELECT idsunlight_level FROM sunlight_levels WHERE name = ?', [newPlantSunlight || 'Partial Sun']);
-      const growthRate = await db.getFirstAsync('SELECT idgrowth_rate FROM growth_rates WHERE name = ?', [newPlantGrowthRate || 'Medium']);
-      const careLevel = await db.getFirstAsync('SELECT idcare_level FROM care_levels WHERE name = ?', [newPlantCareLevel || 'Moderate']);
-
-      const result = await db.runAsync(
-        'INSERT INTO plant_types (name, watering_id, sunlight_id, growth_rate_id, care_level_id) VALUES (?, ?, ?, ?, ?)',
-        [
-          newPlantTypeName.trim(),
-          watering ? watering.idwatering_level : null,
-          sunlight ? sunlight.idsunlight_level : null,
-          growthRate ? growthRate.idgrowth_rate : null,
-          careLevel ? careLevel.idcare_level : null
-        ]
+      const plantData = await database.getFirstAsync(
+        `SELECT pa.idplants_acc, pa.name, pa.creation_date, pa.description, pa.image,
+                pt.name AS type_name, wl.name AS watering_name, sl.name AS sunlight_name, 
+                gr.name AS growth_rate_name, cl.name AS care_level_name
+         FROM plants_acc pa 
+         JOIN plants p ON pa.idplant = p.idplant 
+         JOIN plant_types pt ON p.plant_type_id = pt.idplant_type
+         LEFT JOIN watering_levels wl ON pt.watering_id = wl.idwatering_level
+         LEFT JOIN sunlight_levels sl ON pt.sunlight_id = sl.idsunlight_level
+         LEFT JOIN growth_rates gr ON pt.growth_rate_id = gr.idgrowth_rate
+         LEFT JOIN care_levels cl ON pt.care_level_id = cl.idcare_level
+         WHERE pa.idplants_acc = ?`,
+        [plantId]
       );
 
-      const newPlantId = result.lastInsertRowId;
-      Alert.alert('Sucesso', 'Novo tipo de planta criado com sucesso!');
+      if (!plantData) {
+        console.log("Planta não encontrada com ID:", plantId);
+        Alert.alert("Erro", "Planta não encontrada.");
+        return;
+      }
 
-      await loadPlantTypesFromLocalDb(db);
-      setShowCreateModal(false);
+      setPlant({
+        id: plantData.idplants_acc,
+        name: plantData.name,
+        type: plantData.type_name || "Unknown",
+        createdAt: new Date(plantData.creation_date).toLocaleDateString(),
+        description: plantData.description || "Sem descrição",
+        image: plantData.image || "https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/820zgqtn.png",
+        watering: plantData.watering_name || "Unknown",
+        sunlight: plantData.sunlight_name || "Unknown",
+        growthRate: plantData.growth_rate_name || "Unknown",
+        careLevel: plantData.care_level_name || "Unknown",
+      });
 
-      setNewPlantTypeName('');
-      setNewPlantWatering('');
-      setNewPlantSunlight('');
-      setNewPlantGrowthRate('');
-      setNewPlantCareLevel('');
+      const taskData = await database.getAllAsync(
+        `SELECT n.idnotification AS id, n.message AS name, n.due_date, n.is_read,
+                nt.notification_type
+         FROM notifications n
+         LEFT JOIN notification_types nt ON n.id_notification_type = nt.idnotification_type
+         WHERE n.idplants_acc = ?`,
+        [plantId]
+      );
 
-      const newType = (newPlantWatering?.toLowerCase() || newPlantSunlight?.toLowerCase() ||
-                      newPlantGrowthRate?.toLowerCase() || newPlantCareLevel?.toLowerCase() || 'unknown');
-      setSelectedPlantType({ type: newType, name: newPlantTypeName.trim() });
-      setPlantTypeId(newPlantId);
-      const newPlantDetails = {
-        idplant_type: newPlantId,
-        name: newPlantTypeName.trim(),
-        type: newType,
-        watering: newPlantWatering || 'Moderate',
-        sunlight: newPlantSunlight || 'Partial Sun',
-        growth_rate: newPlantGrowthRate || 'Medium',
-        care_level: newPlantCareLevel || 'Moderate',
-      };
-      setFilteredPlantTypes([...filteredPlantTypes, newPlantDetails]);
+      const organizedTasks = taskData.map((task) => ({
+        id: task.id,
+        name: task.name,
+        dueDate: task.due_date ? new Date(task.due_date) : null,
+        notificationType: task.notification_type || "Unknown",
+        isRead: task.is_read === 1, // Ajustado pra boolean
+      }));
+
+      organizedTasks.sort((a, b) => (a.dueDate - b.dueDate) || 0);
+
+      setTasks(organizedTasks);
+
+      const diseaseData = await database.getAllAsync(
+        `SELECT d.id, d.name, d.description, dpa.is_treated
+         FROM diseases_plants_acc dpa
+         JOIN diseases d ON dpa.disease_id = d.id
+         WHERE dpa.plants_acc_id = ?`,
+        [plantId]
+      );
+
+      setDiseases(diseaseData.map((disease) => ({
+        id: disease.id,
+        name: disease.name,
+        description: disease.description || "Sem descrição",
+        isTreated: disease.is_treated === 1, // Ajustado pra boolean
+      })));
+
     } catch (error) {
-      console.error('Erro ao criar novo tipo de planta:', error);
-      Alert.alert('Erro', `Não foi possível criar o novo tipo de planta. Detalhes: ${error.message}`);
+      console.error("Erro ao buscar detalhes da planta:", error);
+      Alert.alert("Erro", "Falha ao carregar os detalhes da planta: " + error.message);
+    }
+  }, [plantId]);
+
+  useEffect(() => {
+    fetchPlantDetails();
+  }, [fetchPlantDetails]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPlantDetails();
+    }, [fetchPlantDetails])
+  );
+
+  const handleDeleteTask = async (taskId) => {
+    if (!db) {
+      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja apagar esta tarefa?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await db.runAsync('DELETE FROM notifications WHERE idnotification = ?', [taskId]);
+              Alert.alert('Sucesso', 'Tarefa apagada com sucesso!');
+              await fetchPlantDetails();
+            } catch (error) {
+              console.error('Erro ao apagar tarefa:', error);
+              Alert.alert('Erro', `Falha ao apagar a tarefa: ${error.message}`);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEditPress = () => {
+    if (!plantId) {
+      console.error("plantId undefined ao tentar editar!");
+      Alert.alert("Erro", "ID da planta não disponível.");
+      return;
+    }
+    navigation.navigate('EditPlantScreen', { plantId });
+  };
+
+  const handleDeleteDisease = async (diseaseId) => {
+    if (!db) {
+      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja apagar esta doença?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await db.runAsync('DELETE FROM diseases_plants_acc WHERE id = ?', [diseaseId]);
+              Alert.alert('Sucesso', 'Doença apagada com sucesso!');
+              await fetchPlantDetails();
+            } catch (error) {
+              console.error('Erro ao apagar doença:', error);
+              Alert.alert('Erro', `Falha ao apagar a doença: ${error.message}`);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAddDiseasePress = () => {
+    navigation.navigate('CreateDiseaseScreen', { plantId });
+  };
+
+  const handleMarkHealthy = async (diseaseId) => {
+    if (!db) {
+      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      return;
+    }
+
+    try {
+      await db.runAsync(
+        'UPDATE diseases_plants_acc SET is_treated = 1 WHERE id = ?',
+        [diseaseId]
+      );
+      Alert.alert('Sucesso', 'Planta marcada como saudável!');
+      await fetchPlantDetails();
+    } catch (error) {
+      console.error('Erro ao marcar como saudável:', error);
+      Alert.alert('Erro', `Falha ao atualizar o estado: ${error.message}`);
     }
   };
 
-  const commonPlantTypes = ['succulent', 'tree', 'flower', 'shrub', 'vine', 'low', 'moderate', 'regular', 'full sun', 'partial sun', 'shade', 'slow', 'medium', 'fast', 'easy', 'high'];
+  const handleTaskPress = (task) => {
+    console.log("Tarefa pressionada:", task);
+  };
 
-  if (!isDataLoaded) {
+  if (!plant) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Carregando dados...</Text>
-      </View>
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.title}>Carregando...</Text>
+      </SafeAreaView>
     );
   }
 
+  const completedTasks = tasks.filter(task => task.isRead);
+  const pendingTasks = tasks.filter(task => !task.isRead);
+  const overdueTasks = pendingTasks.filter(task => task.dueDate && task.dueDate < new Date());
+
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingBottom: 80 }]}>
-        <Text style={styles.title}>Edit Plant</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        <View style={styles.content}>
+          <Image
+            source={{ uri: plant.image }}
+            resizeMode="contain"
+            style={styles.image}
+          />
+          <View style={styles.plantInfoContainer}>
+            <Text style={styles.title}>{plant.name}</Text>
+            <Text style={styles.detail}>Tipo: {plant.type}</Text>
+            <Text style={styles.detail}>Data de Criação: {plant.createdAt}</Text>
+            <Text style={styles.detail}>Descrição: {plant.description}</Text>
+            <Text style={styles.detail}>Rega: {plant.watering}</Text>
+            <Text style={styles.detail}>Luz Solar: {plant.sunlight}</Text>
+            <Text style={styles.detail}>Taxa de Crescimento: {plant.growthRate}</Text>
+            <Text style={styles.detail}>Nível de Cuidado: {plant.careLevel}</Text>
+          </View>
 
-        <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
-          {imageUri ? (
-            <Image source={{ uri: imageUri }} style={styles.image} />
-          ) : (
-            <Text style={styles.addImageText}>Add Image</Text>
+          {diseases.length > 0 && (
+            <Text style={styles.diseaseAlert}>⚠️ Esta planta está doente!</Text>
           )}
-          <Text style={styles.addIcon}>+</Text>
-        </TouchableOpacity>
 
-        <TextInput
-          style={styles.input}
-          value={plantName}
-          onChangeText={setPlantName}
-          placeholder="Plant Name"
-          autoCapitalize="words"
-        />
-        <TextInput
-          style={[styles.input, styles.descriptionInput]}
-          value={description}
-          onChangeText={setDescription}
-          placeholder="Description"
-          multiline
-          numberOfLines={4}
-        />
-        <TextInput
-          style={styles.input}
-          value={creationDate}
-          onChangeText={setCreationDate}
-          placeholder="Creation Date (YYYY-MM-DD)"
-          autoCapitalize="none"
-          editable={false}
-        />
-
-        <Text style={styles.sectionTitle}>Select Plant Type</Text>
-        {Object.keys(plantTypesByType).length === 0 ? (
-          <Text style={styles.errorText}>Nenhum tipo de planta disponível. Verifique os dados.</Text>
-        ) : (
-          <View style={styles.typeButtonContainer}>
-            {commonPlantTypes.map(type => (
-              plantTypesByType[type] && plantTypesByType[type].length > 0 ? (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.typeButton,
-                    selectedPlantType?.type === type && styles.typeButtonSelected,
-                  ]}
-                  onPress={() => handleSelectPlantType(type)}
-                >
-                  <Text
-                    style={[
-                      styles.typeButtonText,
-                      selectedPlantType?.type === type && styles.typeButtonTextSelected,
-                    ]}
-                  >
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ) : null
-            ))}
+          <View style={styles.buttons}>
             <TouchableOpacity
-              style={[styles.typeButton, styles.createButton]}
-              onPress={() => setShowCreateModal(true)}
+              style={[styles.button, activeTab === 'Tasks' && styles.activeButton]}
+              onPress={() => setActiveTab('Tasks')}
             >
-              <Text style={styles.typeButtonText}>Create New Type</Text>
+              <Text style={[styles.buttonText, activeTab === 'Tasks' && styles.activeButtonText]}>Tarefas</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, activeTab === 'Diseases' && styles.activeButton]}
+              onPress={() => setActiveTab('Diseases')}
+            >
+              <Text style={[styles.buttonText, activeTab === 'Diseases' && styles.activeButtonText]}>Doenças</Text>
             </TouchableOpacity>
           </View>
-        )}
 
-        <Text style={styles.sectionTitle}>Search Plants</Text>
-        <TextInput
-          style={styles.input}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={selectedPlantType ? `Search ${selectedPlantType.type.charAt(0).toUpperCase() + selectedPlantType.type.slice(1)}...` : 'Search All Plants...'}
-          autoCapitalize="none"
-        />
+          {activeTab === 'Tasks' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Visualizar Tarefas</Text>
+              <View style={styles.taskViewButtons}>
+                <TouchableOpacity
+                  style={[styles.taskViewButton, activeTaskView === 'Pending' && styles.activeTaskViewButton]}
+                  onPress={() => setActiveTaskView('Pending')}
+                >
+                  <Text style={styles.taskViewButtonText}>Pendentes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.taskViewButton, activeTaskView === 'Completed' && styles.activeTaskViewButton]}
+                  onPress={() => setActiveTaskView('Completed')}
+                >
+                  <Text style={styles.taskViewButtonText}>Concluídas</Text>
+                </TouchableOpacity>
+              </View>
 
-        <View style={styles.dropdownContainer}>
-          {filteredPlantTypes.length > 0 ? (
-            <RNPickerSelect
-              onValueChange={(value) => {
-                console.log('Selecionando planta no dropdown:', value);
-                setPlantTypeId(value);
-              }}
-              items={filteredPlantTypes.map(type => ({
-                label: type.name,
-                value: type.idplant_type,
-              }))}
-              placeholder={{ label: `Select a plant...`, value: null }}
-              style={pickerSelectStyles}
-              value={plantTypeId}
-            />
-          ) : (
-            <Text style={styles.infoText}>
-              {searchQuery.trim() ? 'Nenhuma planta encontrada com esse termo.' : 'Digite um termo para buscar plantas.'}
-            </Text>
+              {activeTaskView === 'Pending' && (
+                <>
+                  <Text style={styles.sectionTitle}>Tarefas Pendentes</Text>
+                  {pendingTasks.length === 0 ? (
+                    <Text style={styles.noItems}>Nenhuma tarefa pendente encontrada.</Text>
+                  ) : (
+                    pendingTasks.map((task) => (
+                      <TouchableOpacity
+                        key={task.id}
+                        style={styles.item}
+                        onPress={() => handleTaskPress(task)}
+                      >
+                        <View style={styles.taskContent}>
+                          <Text style={styles.itemName}>{task.name}</Text>
+                          <Text style={styles.itemDetail}>Data: {task.dueDate?.toLocaleString() || 'Sem data'}</Text>
+                          <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
+                          <Text style={styles.itemDetail}>Status: Pendente</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.taskButton, styles.deleteButton]}
+                          onPress={() => handleDeleteTask(task.id)}
+                        >
+                          <Text style={styles.taskButtonText}>🗑️</Text>
+                        </TouchableOpacity>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </>
+              )}
+
+              {activeTaskView === 'Completed' && (
+                <>
+                  <Text style={styles.sectionTitle}>Tarefas Concluídas</Text>
+                  {completedTasks.length === 0 ? (
+                    <Text style={styles.noItems}>Nenhuma tarefa concluída encontrada.</Text>
+                  ) : (
+                    completedTasks.map((task) => (
+                      <View key={task.id} style={styles.item}>
+                        <Text style={styles.itemName}>{task.name}</Text>
+                        <Text style={styles.itemDetail}>Data: {task.dueDate?.toLocaleString() || 'Sem data'}</Text>
+                        <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
+                        <Text style={styles.itemDetail}>Status: Concluída</Text>
+                      </View>
+                    ))
+                  )}
+                </>
+              )}
+
+              {overdueTasks.length > 0 && (
+                <>
+                  <Text style={styles.sectionTitle}>Tarefas Atrasadas</Text>
+                  {overdueTasks.map((task) => (
+                    <View key={task.id} style={styles.item}>
+                      <Text style={styles.itemName}>{task.name}</Text>
+                      <Text style={styles.itemDetail}>Data: {task.dueDate?.toLocaleString() || 'Sem data'}</Text>
+                      <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
+                      <Text style={styles.itemDetail}>Status: Atrasada</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+          )}
+
+          {activeTab === 'Diseases' && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Doenças</Text>
+              <TouchableOpacity
+                style={styles.addDiseaseButton}
+                onPress={handleAddDiseasePress}
+              >
+                <Text style={styles.addDiseaseButtonText}>Adicionar Doença</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.sectionTitle}>Doenças Atuais</Text>
+              {diseases.filter(disease => !disease.isTreated).length === 0 ? (
+                <Text style={styles.noItems}>Nenhuma doença encontrada.</Text>
+              ) : (
+                diseases.filter(disease => !disease.isTreated).map((disease) => (
+                  <View key={disease.id} style={styles.item}>
+                    <Text style={styles.itemName}>{disease.name}</Text>
+                    <Text style={styles.itemDetail}>{disease.description}</Text>
+                    <View style={styles.diseaseButtons}>
+                      <TouchableOpacity
+                        style={styles.squareButton}
+                        onPress={() => handleMarkHealthy(disease.id)}
+                      >
+                        <Text style={styles.squareButtonText}>✅</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.squareButton}
+                        onPress={() => handleDeleteDisease(disease.id)}
+                      >
+                        <Text style={styles.squareButtonText}>🗑️</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
+
+              <Text style={styles.sectionTitle}>Histórico de Doenças</Text>
+              {diseases.filter(disease => disease.isTreated).length === 0 ? (
+                <Text style={styles.noItems}>Nenhuma doença tratada encontrada.</Text>
+              ) : (
+                diseases.filter(disease => disease.isTreated).map((disease) => (
+                  <View key={disease.id} style={styles.item}>
+                    <Text style={styles.itemName}>{disease.name}</Text>
+                    <Text style={styles.itemDetail}>{disease.description}</Text>
+                  </View>
+                ))
+              )}
+            </View>
           )}
         </View>
-
-        {selectedPlantType && filteredPlantTypes.length > 0 && plantTypeId && (
-          <View style={styles.detailsContainer}>
-            <Text style={styles.detailsTitle}>{selectedPlantType.name}</Text>
-            <Text style={styles.detailsText}>Watering: {selectedPlantType.watering}</Text>
-            <Text style={styles.detailsText}>Sunlight: {selectedPlantType.sunlight}</Text>
-            <Text style={styles.detailsText}>Growth Rate: {selectedPlantType.growth_rate}</Text>
-            <Text style={styles.detailsText}>Care Level: {selectedPlantType.care_level}</Text>
-          </View>
-        )}
-
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save</Text>
-        </TouchableOpacity>
       </ScrollView>
-
-      <Modal
-        visible={showCreateModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowCreateModal(false)}
+      <TouchableOpacity
+        style={styles.editButton}
+        onPress={handleEditPress}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Create New Plant Type</Text>
-            <TextInput
-              style={styles.input}
-              value={newPlantTypeName}
-              onChangeText={setNewPlantTypeName}
-              placeholder="Plant Type Name"
-              autoCapitalize="words"
-            />
-            <Text style={styles.label}>Watering:</Text>
-            <RNPickerSelect
-              onValueChange={setNewPlantWatering}
-              items={wateringOptions.map(option => ({ label: option, value: option }))}
-              placeholder={{ label: 'Select Watering...', value: null }}
-              style={pickerSelectStyles}
-              value={newPlantWatering}
-            />
-            <Text style={styles.label}>Sunlight:</Text>
-            <RNPickerSelect
-              onValueChange={setNewPlantSunlight}
-              items={sunlightOptions.map(option => ({ label: option, value: option }))}
-              placeholder={{ label: 'Select Sunlight...', value: null }}
-              style={pickerSelectStyles}
-              value={newPlantSunlight}
-            />
-            <Text style={styles.label}>Growth Rate:</Text>
-            <RNPickerSelect
-              onValueChange={setNewPlantGrowthRate}
-              items={growthRateOptions.map(option => ({ label: option, value: option }))}
-              placeholder={{ label: 'Select Growth Rate...', value: null }}
-              style={pickerSelectStyles}
-              value={newPlantGrowthRate}
-            />
-            <Text style={styles.label}>Care Level:</Text>
-            <RNPickerSelect
-              onValueChange={setNewPlantCareLevel}
-              items={careLevelOptions.map(option => ({ label: option, value: option }))}
-              placeholder={{ label: 'Select Care Level...', value: null }}
-              style={pickerSelectStyles}
-              value={newPlantCareLevel}
-            />
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowCreateModal(false)}
-              >
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { backgroundColor: '#468585' }]}
-                onPress={handleCreatePlantType}
-              >
-                <Text style={styles.modalButtonText}>Create</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
+        <Text style={styles.editButtonText}>✏️</Text>
+      </TouchableOpacity>
       <BottomBar />
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  scrollContainer: { padding: 20, alignItems: 'center' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { fontSize: 18, color: '#468585' },
-  errorText: { fontSize: 16, color: 'red', marginBottom: 15 },
-  infoText: { fontSize: 16, color: '#468585', marginBottom: 15, textAlign: 'center' },
-  title: { fontSize: 24, color: '#468585', marginBottom: 20 },
-  sectionTitle: { fontSize: 18, color: '#468585', marginBottom: 10, alignSelf: 'flex-start' },
-  imageContainer: {
-    position: 'relative',
-    marginBottom: 20,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
-    borderColor: '#468585',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0'
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 100, alignItems: "center" },
+  content: { paddingHorizontal: 20, width: "100%", alignItems: "center" },
+  image: { width: 200, height: 200, borderRadius: 10, marginBottom: 20 },
+  plantInfoContainer: { backgroundColor: "#F0F8FF", padding: 15, borderRadius: 10, marginBottom: 20, width: "100%" },
+  title: { fontSize: 24, color: "#468585", fontWeight: 'bold', marginBottom: 10 },
+  detail: { fontSize: 16, color: "#2F2182", marginBottom: 5 },
+  diseaseAlert: { fontSize: 18, color: "#FF0000", marginBottom: 10 },
+  buttons: { flexDirection: "row", justifyContent: "space-between", width: "100%", marginBottom: 20 },
+  button: { flex: 1, padding: 10, backgroundColor: "#E0E0E0", borderRadius: 5, marginHorizontal: 5, alignItems: "center" },
+  activeButton: { backgroundColor: "#468585" },
+  buttonText: { color: "#2F2182" },
+  activeButtonText: { color: "#FFFFFF" },
+  section: { width: "100%", marginBottom: 20 },
+  sectionTitle: { fontSize: 20, color: "#468585", fontWeight: "bold", marginBottom: 10, textAlign: "center" },
+  item: { backgroundColor: "#E9E9F9", padding: 10, borderRadius: 10, marginBottom: 10 },
+  taskContent: { flex: 1 },
+  itemName: { fontSize: 16, color: "#2F2182", fontWeight: 'bold' },
+  itemDetail: { fontSize: 14, color: "#468585" },
+  noItems: { fontSize: 16, color: "#468585", textAlign: "center" },
+  taskViewButtons: { flexDirection: "row", justifyContent: "space-around", marginBottom: 10 },
+  taskViewButton: { backgroundColor: "#E0E0E0", padding: 10, borderRadius: 5, flex: 1, alignItems: "center" },
+  activeTaskViewButton: { backgroundColor: "#468585" },
+  taskViewButtonText: { color: "#2F2182" },
+  editButton: {
+    position: "absolute", bottom: 80, right: 20, backgroundColor: "#468585", width: 50, height: 50,
+    borderRadius: 25, justifyContent: "center", alignItems: "center", elevation: 5, shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, zIndex: 1
   },
-  image: { width: 96, height: 96, borderRadius: 48 },
-  addImageText: { color: '#468585', fontSize: 16 },
-  addIcon: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: '#468585',
-    color: '#fff',
-    width: 20,
-    height: 20,
-    textAlign: 'center',
-    borderRadius: 10,
-    fontSize: 14
-  },
-  input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#468585',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 15,
-    fontSize: 16
-  },
-  descriptionInput: { height: 100, textAlignVertical: 'top' },
-  typeButtonContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', marginBottom: 15 },
-  typeButton: {
-    backgroundColor: '#f0f0f0',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
-    margin: 5,
-    borderWidth: 1,
-    borderColor: '#468585'
-  },
-  typeButtonSelected: { backgroundColor: '#468585' },
-  typeButtonText: { color: '#468585', fontSize: 14 },
-  typeButtonTextSelected: { color: '#fff' },
-  createButton: { backgroundColor: '#B0A8F0' },
-  dropdownContainer: { width: '100%', marginBottom: 15 },
-  detailsContainer: {
-    width: '100%',
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#468585',
-    borderRadius: 10,
-    marginBottom: 15
-  },
-  detailsTitle: { fontSize: 18, color: '#468585', marginBottom: 5 },
-  detailsText: { fontSize: 14, color: '#333', marginBottom: 3 },
-  saveButton: {
-    backgroundColor: '#468585',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    marginBottom: 20
-  },
-  saveButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center'
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)'
-  },
-  modalContainer: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
-    maxHeight: '80%'
-  },
-  modalTitle: {
-    fontSize: 20,
-    color: '#468585',
-    marginBottom: 15,
-    textAlign: 'center'
-  },
-  label: { fontSize: 16, color: '#468585', marginBottom: 5 },
-  modalButtonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 10
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginHorizontal: 5
-  },
-  cancelButton: { backgroundColor: '#ccc' },
-  modalButtonText: { color: '#fff', fontSize: 16 },
-});
-
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#468585',
-    borderRadius: 10,
-    padding: 10,
-    fontSize: 16,
-    color: '#000'
-  },
-  inputAndroid: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#468585',
-    borderRadius: 10,
-    padding: 10,
-    fontSize: 16,
-    color: '#000'
-  },
+  editButtonText: { color: "#FFFFFF", fontSize: 20, fontWeight: "bold" },
+  squareButton: { backgroundColor: "#468585", width: 40, height: 40, borderRadius: 5, justifyContent: "center", alignItems: "center", marginRight: 5 },
+  squareButtonText: { color: "#FFFFFF", fontSize: 16 },
+  addDiseaseButton: { backgroundColor: "#B0A8F0", padding: 10, borderRadius: 5, marginBottom: 10, alignItems: "center", borderWidth: 1, borderColor: "#468585" },
+  addDiseaseButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },
+  taskButton: { padding: 5, borderRadius: 5, alignItems: "center" },
+  deleteButton: { backgroundColor: "#FF4444" },
+  taskButtonText: { color: "#FFFFFF", fontSize: 16 },
+  diseaseButtons: { flexDirection: "row", marginTop: 5 },
 });
