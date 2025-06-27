@@ -16,7 +16,7 @@ const BottomBar = ({ navigation }) => {
       </TouchableOpacity>
       <TouchableOpacity 
         style={styles.icon} 
-        onPress={() => navigation.navigate('SettingsScreen')}>
+        onPress={() => navigation.navigate('Settings')}>
         <Image source={require("../../assets/images/gear.png")} style={styles.iconContent} />
       </TouchableOpacity>
     </View>

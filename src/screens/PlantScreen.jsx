@@ -23,6 +23,7 @@ export default function PlantScreen() {
   const [plant, setPlant] = useState(null);
   const [db, setDb] = useState(null);
   const [activeTab, setActiveTab] = useState('Tasks');
+  const [activeTaskView, setActiveTaskView] = useState('Pending'); // Para controlar a visualização das tarefas
   const [tasks, setTasks] = useState([]);
   const [diseases, setDiseases] = useState([]);
 
@@ -39,11 +40,10 @@ export default function PlantScreen() {
 
     try {
       // Fetch plant details
-      console.log("Buscando detalhes da planta com ID:", plantId);
       const plantData = await database.getFirstAsync(
-        `SELECT pa.idplants_acc, pa.name, pa.creation_date, pa.description, pa.image, 
+        `SELECT pa.idplants_acc, pa.name, pa.creation_date, pa.description, pa.image,
                 pt.name AS type_name, wl.name AS watering_name, sl.name AS sunlight_name, 
-                gr.name AS growth_rate_name, cl.name AS care_level_name 
+                gr.name AS growth_rate_name, cl.name AS care_level_name
          FROM plants_acc pa 
          JOIN plants p ON pa.idplant = p.idplant 
          JOIN plant_types pt ON p.plant_type_id = pt.idplant_type
@@ -60,8 +60,6 @@ export default function PlantScreen() {
         Alert.alert("Erro", "Planta não encontrada.");
         return;
       }
-
-      console.log("Dados da planta encontrados:", plantData);
 
       setPlant({
         id: plantData.idplants_acc,
@@ -86,15 +84,19 @@ export default function PlantScreen() {
         [plantId]
       );
 
-      console.log("Tarefas encontradas:", taskData);
-
-      setTasks(taskData.map((task) => ({
+      // Organize tasks by due date and separate completed tasks
+      const organizedTasks = taskData.map((task) => ({
         id: task.id,
         name: task.name,
-        dueDate: task.due_date ? new Date(task.due_date).toLocaleString() : "N/A",
+        dueDate: task.due_date ? new Date(task.due_date) : null,
         notificationType: task.notification_type || "Unknown",
         isRead: task.is_read,
-      })));
+      }));
+
+      // Sort tasks by due date (ascending)
+      organizedTasks.sort((a, b) => (a.dueDate - b.dueDate));
+
+      setTasks(organizedTasks);
 
       // Fetch diseases from diseases_plants_acc and diseases tables
       const diseaseData = await database.getAllAsync(
@@ -104,8 +106,6 @@ export default function PlantScreen() {
          WHERE dpa.plants_acc_id = ?`,
         [plantId]
       );
-
-      console.log("Doenças encontradas:", diseaseData);
 
       setDiseases(diseaseData.map((disease) => ({
         id: disease.id,
@@ -164,20 +164,40 @@ export default function PlantScreen() {
       Alert.alert("Erro", "ID da planta não disponível.");
       return;
     }
-    console.log("Navegando para tela de edição com plantId:", plantId);
     navigation.navigate('EditPlantScreen', { plantId });
   };
 
-  const handleTaskPress = (task) => {
-    navigation.navigate('Task', { taskId: task.id, plantId });
+  const handleDeleteDisease = async (diseaseId) => {
+    if (!db) {
+      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmar Exclusão',
+      'Tem certeza que deseja apagar esta doença?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await db.runAsync('DELETE FROM diseases_plants_acc WHERE disease_id = ? AND plants_acc_id = ?', [diseaseId, plantId]);
+              Alert.alert('Sucesso', 'Doença apagada com sucesso!');
+              await fetchPlantDetails(); // Atualiza a lista de doenças
+            } catch (error) {
+              console.error('Erro ao apagar doença:', error);
+              Alert.alert('Erro', `Falha ao apagar a doença: ${error.message}`);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleAddDiseasePress = () => {
     navigation.navigate('CreateDiseaseScreen', { plantId }); // Navega para a tela de criação de doenças
-  };
-
-  const handleDiseasePress = (disease) => {
-    navigation.navigate('DiseaseScreen', { diseaseId: disease.id, plantId }); // Navega para a tela de detalhes da doença
   };
 
   if (!plant) {
@@ -187,6 +207,10 @@ export default function PlantScreen() {
       </SafeAreaView>
     );
   }
+
+  // Separate tasks into completed and pending
+  const completedTasks = tasks.filter(task => task.isRead);
+  const pendingTasks = tasks.filter(task => !task.isRead);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -230,60 +254,104 @@ export default function PlantScreen() {
           </View>
 
           {activeTab === 'Tasks' && (
-            <TouchableOpacity
-              style={styles.addTaskButton}
-              onPress={() => navigation.navigate('CreateTask', { plantId })}
-            >
-              <Text style={styles.addTaskButtonText}>Adicionar Tarefa</Text>
-            </TouchableOpacity>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Visualizar Tarefas</Text>
+              <View style={styles.taskViewButtons}>
+                <TouchableOpacity
+                  style={[styles.taskViewButton, activeTaskView === 'Pending' && styles.activeTaskViewButton]}
+                  onPress={() => setActiveTaskView('Pending')}
+                >
+                  <Text style={styles.taskViewButtonText}>Pendentes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.taskViewButton, activeTaskView === 'Completed' && styles.activeTaskViewButton]}
+                  onPress={() => setActiveTaskView('Completed')}
+                >
+                  <Text style={styles.taskViewButtonText}>Concluídas</Text>
+                </TouchableOpacity>
+              </View>
+
+              {activeTaskView === 'Pending' && (
+                <>
+                  <Text style={styles.sectionTitle}>Tarefas Pendentes</Text>
+                  {pendingTasks.length === 0 ? (
+                    <Text style={styles.noItems}>Nenhuma tarefa pendente encontrada.</Text>
+                  ) : (
+                    pendingTasks.map((task) => (
+                      <TouchableOpacity
+                        key={task.id}
+                        style={styles.item}
+                        onPress={() => handleTaskPress(task)}
+                      >
+                        <View style={styles.taskContent}>
+                          <Text style={styles.itemName}>{task.name}</Text>
+                          <Text style={styles.itemDetail}>Data: {task.dueDate.toLocaleString()}</Text>
+                          <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
+                          <Text style={styles.itemDetail}>Status: Pendente</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={[styles.taskButton, styles.deleteButton]}
+                          onPress={() => handleDeleteTask(task.id)}
+                        >
+                          <Text style={styles.taskButtonText}>🗑️</Text>
+                        </TouchableOpacity>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </>
+              )}
+
+              {activeTaskView === 'Completed' && (
+                <>
+                  <Text style={styles.sectionTitle}>Tarefas Concluídas</Text>
+                  {completedTasks.length === 0 ? (
+                    <Text style={styles.noItems}>Nenhuma tarefa concluída encontrada.</Text>
+                  ) : (
+                    completedTasks.map((task) => (
+                      <View key={task.id} style={styles.item}>
+                        <Text style={styles.itemName}>{task.name}</Text>
+                        <Text style={styles.itemDetail}>Data: {task.dueDate.toLocaleString()}</Text>
+                        <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
+                        <Text style={styles.itemDetail}>Status: Concluída</Text>
+                      </View>
+                    ))
+                  )}
+                </>
+              )}
+            </View>
           )}
 
           {activeTab === 'Diseases' && (
-            <TouchableOpacity
-              style={styles.addDiseaseButton}
-              onPress={handleAddDiseasePress}
-            >
-              <Text style={styles.addDiseaseButtonText}>Adicionar Doença</Text>
-            </TouchableOpacity>
-          )}
-
-          {activeTab === 'Tasks' ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Tarefas</Text>
-              {tasks.length === 0 ? (
-                <Text style={styles.noItems}>Nenhuma tarefa encontrada.</Text>
-              ) : (
-                tasks.map((task) => (
-                  <TouchableOpacity
-                    key={task.id}
-                    style={styles.item}
-                    onPress={() => handleTaskPress(task)}
-                  >
-                    <View style={styles.taskContent}>
-                      <Text style={styles.itemName}>{task.name}</Text>
-                      <Text style={styles.itemDetail}>Data: {task.dueDate}</Text>
-                      <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
-                      <Text style={styles.itemDetail}>Status: {task.isRead ? 'Concluída' : 'Pendente'}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))
-              )}
-            </View>
-          ) : (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Doenças</Text>
+              <TouchableOpacity
+                style={styles.addDiseaseButton}
+                onPress={handleAddDiseasePress}
+              >
+                <Text style={styles.addDiseaseButtonText}>Adicionar Doença</Text>
+              </TouchableOpacity>
               {diseases.length === 0 ? (
                 <Text style={styles.noItems}>Nenhuma doença encontrada.</Text>
               ) : (
                 diseases.map((disease) => (
-                  <TouchableOpacity
-                    key={disease.id}
-                    style={styles.item}
-                    onPress={() => handleDiseasePress(disease)}
-                  >
+                  <View key={disease.id} style={styles.item}>
                     <Text style={styles.itemName}>{disease.name}</Text>
                     <Text style={styles.itemDetail}>{disease.description}</Text>
-                  </TouchableOpacity>
+                    <View style={styles.diseaseButtons}>
+                      <TouchableOpacity
+                        style={styles.completeButton}
+                        onPress={() => handleMarkHealthy(disease.id)}
+                      >
+                        <Text style={styles.completeButtonText}>✅ Marcar como Saudável</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteDisease(disease.id)}
+                      >
+                        <Text style={styles.completeButtonText}>🗑️ Apagar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 ))
               )}
             </View>
@@ -389,9 +457,6 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     marginBottom: 10,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
   },
   taskContent: {
     flex: 1,
@@ -403,7 +468,7 @@ const styles = StyleSheet.create({
   },
   itemDetail: {
     fontSize: 14,
-    color: "#468585",
+    color: "#468 585",
   },
   noItems: {
     fontSize: 16,
@@ -459,9 +524,33 @@ const styles = StyleSheet.create({
     backgroundColor: "#468585",
     padding: 5,
     borderRadius: 5,
+    marginRight: 5,
   },
   completeButtonText: {
     color: "#FFFFFF",
     fontSize: 12,
+  },
+  deleteButton: {
+    backgroundColor: "#F44336",
+    padding: 5,
+    borderRadius: 5,
+  },
+  taskViewButtons: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 10,
+  },
+  taskViewButton: {
+    backgroundColor: "#E0E0E0",
+    padding: 10,
+    borderRadius: 5,
+    flex: 1,
+    alignItems: "center",
+  },
+  activeTaskViewButton: {
+    backgroundColor: "#468585",
+  },
+  taskViewButtonText: {
+    color: "#2F2182",
   },
 });
