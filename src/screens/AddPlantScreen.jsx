@@ -33,10 +33,11 @@ export default function AddPlantScreen() {
   const [newPlantCareLevel, setNewPlantCareLevel] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const wateringOptions = ['Low', 'Moderate', 'Regular'];
-  const sunlightOptions = ['Full Sun', 'Partial Sun', 'Shade'];
-  const growthRateOptions = ['Slow', 'Medium', 'Fast'];
-  const careLevelOptions = ['Easy', 'Moderate', 'High'];
+const wateringOptions = ['Pouca', 'Moderada', 'Regular'];
+const sunlightOptions = ['Sol Pleno', 'Meia Sombra', 'Sombra'];
+const growthRateOptions = ['Lento', 'Médio', 'Rápido'];
+const careLevelOptions = ['Fácil', 'Moderado', 'Exigente'];
+
 
   console.log('AddPlantScreen - Estado inicial:', { user, loggedIn, isLoading });
 
@@ -652,7 +653,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
-    marginHorizontal: 5
+    marginHorizontal: 5,
   },
   cancelButton: { backgroundColor: '#ccc' },
   modalButtonText: { color: '#fff', fontSize: 16 },

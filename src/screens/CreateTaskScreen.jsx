@@ -18,7 +18,7 @@ export default function CreateTaskScreen() {
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [notificationTypeId, setNotificationTypeId] = useState(null);
   const [plants, setPlants] = useState([]);
-  const [notificationTypes, setNotificationTypes] = useState([]);
+  const [notificationTypes, setNotificationTypes] = useState([]); // Estado sempre inicia vazio
   const [db, setDb] = useState(null);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
 
@@ -35,6 +35,22 @@ export default function CreateTaskScreen() {
         await initializeDatabase(database);
         setDb(database);
 
+        // Limpar tabelas na ordem correta (primeiro notifications, depois notification_types)
+        await database.runAsync('DELETE FROM notifications;');
+        console.log('Tabela notifications limpa com sucesso.');
+        await database.runAsync('DELETE FROM notification_types;');
+        console.log('Tabela notification_types limpa com sucesso.');
+
+        // Inserir tipos de notificação iniciais
+        await database.runAsync(`
+          INSERT OR IGNORE INTO notification_types (idnotification_type, notification_type)
+          VALUES 
+            (1, 'Diária'),
+            (2, 'Mensal'),
+            (3, 'Semanal'),
+            (4, 'Única');
+        `).catch(err => console.error('Erro ao inserir tipos iniciais:', err));
+
         // Load plants
         const plantData = await database.getAllAsync('SELECT idplants_acc, name FROM plants_acc');
         setPlants(plantData);
@@ -43,7 +59,12 @@ export default function CreateTaskScreen() {
         const typeData = await database.getAllAsync(
           'SELECT DISTINCT idnotification_type, notification_type FROM notification_types'
         );
+        console.log('Dados brutos do banco (notification_types):', typeData);
         const uniqueTypes = Array.from(new Map(typeData.map(item => [item.idnotification_type, item])).values());
+        console.log('Tipos únicos após mapeamento:', uniqueTypes);
+        if (uniqueTypes.length === 0) {
+          console.warn('Nenhum tipo de notificação encontrado no banco!');
+        }
         setNotificationTypes(uniqueTypes);
 
         setIsDataLoaded(true);
@@ -69,6 +90,7 @@ export default function CreateTaskScreen() {
          LEFT JOIN notification_types ON notifications.id_notification_type = notification_types.idnotification_type 
          WHERE is_read = 0`
       );
+      console.log('Tarefas pendentes carregadas (pode incluir notification_type):', tasks);
 
       tasks.forEach(async (task) => {
         const due = new Date(task.due_date);
@@ -161,6 +183,25 @@ export default function CreateTaskScreen() {
     setDueDate(new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), currentTime.getHours(), currentTime.getMinutes()));
   };
 
+  const clearNotificationTypes = async () => {
+    if (!db) {
+      Alert.alert('Erro', 'Base de dados não inicializado.');
+      return;
+    }
+    try {
+      // Limpar notifications primeiro pra evitar erro de chave estrangeira
+      await db.runAsync('DELETE FROM notifications;');
+      console.log('Tabela notifications limpa com sucesso.');
+      await db.runAsync('DELETE FROM notification_types;');
+      console.log('Tabela notification_types limpa com sucesso.');
+      setNotificationTypes([]); // Limpa o estado imediatamente
+      Alert.alert('Sucesso', 'Tipos de notificação e tarefas apagados com sucesso.');
+    } catch (error) {
+      console.error('Erro ao limpar tabelas:', error);
+      Alert.alert('Erro', `Falha ao apagar dados: ${error.message}`);
+    }
+  };
+
   if (!isDataLoaded) {
     return (
       <View style={styles.loadingContainer}>
@@ -206,7 +247,10 @@ export default function CreateTaskScreen() {
           <View style={styles.dropdownContainer}>
             <RNPickerSelect
               onValueChange={(value) => setNotificationTypeId(value)}
-              items={notificationTypes.map((type) => ({ label: type.notification_type, value: type.idnotification_type }))}
+              items={notificationTypes.map((type) => ({
+                label: type.notification_type,
+                value: type.idnotification_type,
+              }))}
               placeholder={{ label: 'Selecione um tipo de notificação...', value: null }}
               style={pickerSelectStyles}
               value={notificationTypeId}
@@ -244,6 +288,7 @@ export default function CreateTaskScreen() {
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Criar Tarefa</Text>
         </TouchableOpacity>
+
       </ScrollView>
       <BottomBar />
     </View>

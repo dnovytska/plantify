@@ -87,7 +87,7 @@ export default function HeaderDropdown() {
             {/* Removido o título do menu */}
             <TouchableOpacity onPress={() => handleNavigate('YourPlants')} style={styles.menuItemContainer}>
               <Image source={require('../../assets/images/many-plants.png')} style={styles.menuIcon} />
-              <Text style={styles.menuItem}>YourPlants</Text>
+              <Text style={styles.menuItem}>Suas Plantas</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => handleNavigate('Settings')} style={styles.menuItemContainer}>
               <Image source={require('../../assets/images/gear.png')} style={styles.menuIcon} />

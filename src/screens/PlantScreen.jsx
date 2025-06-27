@@ -343,7 +343,6 @@ export default function PlantScreen() {
 
           {activeTab === 'Tasks' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Visualizar Tarefas</Text>
               <TouchableOpacity
                 style={styles.addTaskButton}
                 onPress={handleAddTaskPress}
@@ -446,7 +445,6 @@ export default function PlantScreen() {
 
           {activeTab === 'Diseases' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Doenças</Text>
               <TouchableOpacity
                 style={styles.addDiseaseButton}
                 onPress={handleAddDiseasePress}
@@ -621,18 +619,25 @@ const styles = StyleSheet.create({
   },
   editButton: {
     position: "absolute",
-    bottom: 80,
+    bottom: 100,
     right: 20,
     backgroundColor: "#468585",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 50,
+    marginBottom: 40,
     justifyContent: "center",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   editButtonText: {
     color: "#FFFFFF",
-    fontSize: 24,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   addTaskButton: {
     backgroundColor: "#468585",
