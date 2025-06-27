@@ -1,5 +1,6 @@
+// src/screens/SettingsScreen.js
 import React, { useContext } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
 import BottomBar from '../components/BottomBar';
@@ -14,20 +15,38 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.avatarContainer}>
-          <Image
-            source={{ uri: 'https://via.placeholder.com/60' }} // Substitua por uma URL de imagem real ou use um estado para a foto
-            style={styles.avatar}
-          />
-          <Text style={styles.addIcon}>+</Text>
-        </TouchableOpacity>
-        <Text style={styles.userName}>{user?.name || 'User Name'}</Text>
-        <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
-        <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
-          <Text style={styles.editButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.avatarContainer}>
+            <Image
+              source={{ uri: 'https://via.placeholder.com/100' }} // Substitua por uma URL de imagem real ou use um estado para a foto
+              style={styles.avatar}
+            />
+            <Text style={styles.addIcon}>+</Text>
+          </TouchableOpacity>
+          <Text style={styles.userName}>{user?.name || 'User  Name'}</Text>
+          <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
+          <TouchableOpacity style={styles.editButton} onPress={handleEditProfile}>
+            <Text style={styles.editButtonText}>Editar Perfil</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.description}>
+          Gerencie suas configurações e preferências aqui.
+        </Text>
+
+        <View style={styles.optionsContainer}>
+          <TouchableOpacity style={styles.optionButton} onPress={() => navigation.navigate('Notifications')}>
+            <Text style={styles.optionText}>Notificações</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.optionButton} onPress={() => navigation.navigate('Privacy')}>
+            <Text style={styles.optionText}>Privacidade</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.optionButton} onPress={() => navigation.navigate('About')}>
+            <Text style={styles.optionText}>Sobre</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
       <BottomBar />
     </View>
   );
@@ -37,10 +56,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
+  },
+  scrollContainer: {
     padding: 20,
   },
   header: {
     alignItems: 'center',
+    marginBottom: 20,
   },
   avatarContainer: {
     position: 'relative',
@@ -84,5 +106,24 @@ const styles = StyleSheet.create({
   editButtonText: {
     color: '#fff',
     fontSize: 16,
+  },
+  description: {
+    fontSize: 16,
+    color: '#468585',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  optionsContainer: {
+    marginTop: 20,
+  },
+  optionButton: {
+    backgroundColor: '#E0E0E0',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  optionText: {
+    fontSize: 18,
+    color: '#2F2182',
   },
 });
