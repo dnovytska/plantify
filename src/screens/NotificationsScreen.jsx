@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { openDatabase } from '../DB/db'; // Certifique-se de que o caminho está correto
 
-const db = openDatabase(); // Inicialize o banco de dados aqui
+const db = openDatabase(); // Inicialize o Base de dados aqui
 
 export default function NotificationsScreen() {
   const [tasks, setTasks] = useState([]);

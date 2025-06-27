@@ -14,6 +14,7 @@ export default function PlantIdentificationScreen({ navigation }) {
   const [isLoading, setIsLoading] = useState(false);
   const [hasGalleryPermission, setHasGalleryPermission] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
+  const [plantTypeId, setPlantTypeId] = useState(null);
 
   if (!context) {
     console.error('AuthContext não está disponível no PlantIdentificationScreen');
@@ -46,7 +47,7 @@ export default function PlantIdentificationScreen({ navigation }) {
   const checkLogin = async () => {
     console.log('Verificando login, user:', user, 'loggedIn:', loggedIn);
     if (!user || !user.iduser) {
-      console.warn('Usuário não logado ou iduser ausente:', { user, loggedIn });
+      console.warn('utilizador não logado ou iduser ausente:', { user, loggedIn });
       Alert.alert('Erro', 'Você precisa estar logado para realizar esta ação. Faça login primeiro.');
       try {
         await logout();
@@ -57,7 +58,7 @@ export default function PlantIdentificationScreen({ navigation }) {
       }
       return false;
     }
-    console.log('Usuário logado, prosseguindo:', { iduser: user.iduser, name: user.name });
+    console.log('utilizador logado, prosseguindo:', { iduser: user.iduser, name: user.name });
     return true;
   };
 
@@ -201,13 +202,7 @@ export default function PlantIdentificationScreen({ navigation }) {
           console.log('Tipo de planta encontrado:', { id: plantTypeId, name: scientificName });
         }
 
-        // Navegar para AddPlant
-        console.log('Navegando para AddPlant com:', { imageUri, plantName: scientificName, plantTypeId });
-        navigation.navigate('AddPlant', {
-          imageUri,
-          plantName: scientificName,
-          plantTypeId,
-        });
+        setPlantTypeId(plantTypeId);
       } else {
         setIdentificationResult('Nenhuma planta identificada.');
         console.log('Nenhuma planta identificada pela API');
@@ -218,6 +213,19 @@ export default function PlantIdentificationScreen({ navigation }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleAddPlant = () => {
+    if (!identificationResult || !imageUri || !plantTypeId) {
+      Alert.alert('Erro', 'Identificação incompleta. Tente novamente.');
+      return;
+    }
+    navigation.navigate('AddPlant', {
+      imageUri,
+      plantName: identificationResult,
+      plantTypeId,
+    });
+    console.log('Navegando para AddPlant com:', { imageUri, plantName: identificationResult, plantTypeId });
   };
 
   return (
@@ -239,7 +247,12 @@ export default function PlantIdentificationScreen({ navigation }) {
           <Text style={styles.identifyButtonText}>{isLoading ? 'Identificando...' : 'Identificar Planta'}</Text>
         </TouchableOpacity>
         {identificationResult && (
-          <Text style={styles.resultText}>Planta: {identificationResult}</Text>
+          <View>
+            <Text style={styles.resultText}>Planta: {identificationResult}</Text>
+            <TouchableOpacity style={styles.addPlantButton} onPress={handleAddPlant}>
+              <Text style={styles.addPlantButtonText}>Adicionar Planta</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </ScrollView>
       <BottomBar />
@@ -259,5 +272,7 @@ const styles = StyleSheet.create({
   addImageText: { color: '#468585', fontSize: 16, textAlign: 'center' },
   identifyButton: { backgroundColor: '#B0A8F0', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 20, marginBottom: 20 },
   identifyButtonText: { color: '#fff', fontSize: 16 },
-  resultText: { fontSize: 18, color: '#333', textAlign: 'center', marginTop: 20 },
+  resultText: { fontSize: 18, color: '#333', textAlign: 'center', marginTop: 20, marginBottom: 15 },
+  addPlantButton: { backgroundColor: '#468585', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 20, marginTop: 10 },
+  addPlantButtonText: { color: '#fff', fontSize: 16, textAlign: 'center' },
 });

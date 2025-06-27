@@ -17,7 +17,7 @@ export default function RegisterScreen({ navigation }) {
   useEffect(() => {
     async function initDb() {
       try {
-        console.log('Inicializando banco de dados...');
+        console.log('Inicializando Base de dados...');
         const database = await SQLite.openDatabaseAsync('plantifydb.db');
         await database.execAsync(`
           CREATE TABLE IF NOT EXISTS users (
@@ -103,10 +103,10 @@ export default function RegisterScreen({ navigation }) {
           );
         `);
         setDb(database);
-        console.log('Banco de dados inicializado com sucesso');
+        console.log('Base de dados inicializado com sucesso');
       } catch (error) {
-        console.error('Erro ao inicializar banco de dados:', error);
-        Alert.alert('Erro', 'Falha ao preparar o banco de dados');
+        console.error('Erro ao inicializar Base de dados:', error);
+        Alert.alert('Erro', 'Falha ao preparar o Base de dados');
       } finally {
         setLoadingDb(false);
       }
@@ -116,8 +116,8 @@ export default function RegisterScreen({ navigation }) {
 
   const handleRegister = async () => {
     if (!db) {
-      console.warn('Banco de dados não está pronto');
-      Alert.alert('Erro', 'Banco de dados não está pronto');
+      console.warn('Base de dados não está pronto');
+      Alert.alert('Erro', 'Base de dados não está pronto');
       return;
     }
 
@@ -145,12 +145,12 @@ export default function RegisterScreen({ navigation }) {
         password.trim()
       );
 
-      console.log('Inserindo novo usuário:', { username, email, name, createdAt });
+      console.log('Inserindo novo utilizador:', { username, email, name, createdAt });
       const { lastInsertRowId } = await db.runAsync(
         'INSERT INTO users (username, email, name, created_at, password, profile_image) VALUES (?, ?, ?, ?, ?, ?);',
         [username.trim(), email.trim(), name.trim(), createdAt, hashedPassword, profileImage || null]
       );
-      console.log('Usuário registrado com ID:', lastInsertRowId);
+      console.log('utilizador registrado com ID:', lastInsertRowId);
 
       // Chamar login do AuthContext
       const userData = {
@@ -181,7 +181,7 @@ export default function RegisterScreen({ navigation }) {
   if (loadingDb) {
     return (
       <View style={styles.container}>
-        <Text style={styles.loadingText}>Preparando banco de dados...</Text>
+        <Text style={styles.loadingText}>Preparando Base de dados...</Text>
       </View>
     );
   }
@@ -191,7 +191,7 @@ export default function RegisterScreen({ navigation }) {
       <Text style={styles.title}>Criar Conta</Text>
       <TextInput
         style={styles.input}
-        placeholder="Nome de Usuário"
+        placeholder="Nome de utilizador"
         value={username}
         onChangeText={setUsername}
         autoCapitalize="none"

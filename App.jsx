@@ -56,12 +56,12 @@ function AppNavigator() {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#468585" />
-        <Text>Verificando usuário...</Text>
+        <Text>Verificando utilizador...</Text>
       </View>
     );
   }
   if (!loggedIn) {
-    console.log('Usuário não logado no AppNavigator, aguardando RootNavigator');
+    console.log('utilizador não logado no AppNavigator, aguardando RootNavigator');
     return null;
   }
   return (
@@ -104,7 +104,7 @@ function RootNavigator() {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#468585" />
-        <Text>Verificando usuário...</Text>
+        <Text>Verificando utilizador...</Text>
       </View>
     );
   }

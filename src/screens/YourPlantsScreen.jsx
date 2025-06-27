@@ -19,14 +19,14 @@ export default function YourPlantsScreen({ navigation, route }) {
       }
 
       if (!user || !user.iduser) {
-        console.warn('Usuário não logado ou iduser ausente:', { user, loggedIn });
+        console.warn('utilizador não logado ou iduser ausente:', { user, loggedIn });
         Alert.alert('Erro', 'Você precisa estar logado para visualizar suas plantas. Faça login primeiro.');
         navigation.navigate('Login');
         return;
       }
 
       try {
-        console.log('Carregando plantas para o usuário:', user.iduser);
+        console.log('Carregando plantas para o utilizador:', user.iduser);
         const db = await openDatabase();
         const plantsData = await db.getAllAsync(
           `SELECT pa.idplants_acc, pa.name, pa.image, pa.creation_date, pa.description, pt.name AS plant_type_name

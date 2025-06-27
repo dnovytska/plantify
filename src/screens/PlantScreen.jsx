@@ -153,6 +153,43 @@ export default function PlantScreen() {
     );
   };
 
+  const handleMarkAsDone = async (taskId) => {
+    if (!db) {
+      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmar',
+      'Tem certeza que deseja marcar esta tarefa como concluída?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Marcar como Concluída',
+          onPress: async () => {
+            try {
+              await db.runAsync('UPDATE notifications SET is_read = 1 WHERE idnotification = ?', [taskId]);
+              Alert.alert('Sucesso', 'Tarefa marcada como concluída!');
+              await fetchPlantDetails(); // Atualiza a lista de tarefas
+            } catch (error) {
+              console.error('Erro ao marcar tarefa como concluída:', error);
+              Alert.alert('Erro', `Falha ao atualizar o estado: ${error.message}`);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEditTask = (taskId) => {
+    if (!plantId || !taskId) {
+      console.error("plantId ou taskId inválidos:", { plantId, taskId });
+      Alert.alert("Erro", "ID da planta ou tarefa não disponível.");
+      return;
+    }
+    navigation.navigate('EditTask', { plantId, taskId });
+  };
+
   const handleTaskPress = (task) => {
     if (!plantId || !task.id) {
       console.error("plantId ou taskId inválidos:", { plantId, taskId: task.id });
@@ -347,12 +384,26 @@ export default function PlantScreen() {
                           <Text style={styles.itemDetail}>Tipo: {task.notificationType}</Text>
                           <Text style={styles.itemDetail}>Status: Pendente</Text>
                         </View>
-                        <TouchableOpacity
-                          style={[styles.taskButton, styles.deleteButton]}
-                          onPress={() => handleDeleteTask(task.id)}
-                        >
-                          <Text style={styles.taskButtonText}>🗑️</Text>
-                        </TouchableOpacity>
+                        <View style={styles.taskButtons}>
+                          <TouchableOpacity
+                            style={styles.taskButton}
+                            onPress={() => handleMarkAsDone(task.id)}
+                          >
+                            <Text style={styles.taskButtonText}>✔️</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.taskButton, styles.deleteButton]}
+                            onPress={() => handleDeleteTask(task.id)}
+                          >
+                            <Text style={styles.taskButtonText}>🗑️</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.taskButton}
+                            onPress={() => handleEditTask(task.id)}
+                          >
+                            <Text style={styles.taskButtonText}>✏️</Text>
+                          </TouchableOpacity>
+                        </View>
                       </TouchableOpacity>
                     ))
                   )}
@@ -464,6 +515,8 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 10,
     marginBottom: 20,
+    marginTop: 20,
+    borderRadius: 10,
   },
   plantInfoContainer: {
     backgroundColor: "#F0F8FF",
@@ -527,6 +580,9 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   taskContent: {
     flex: 1,
@@ -612,5 +668,26 @@ const styles = StyleSheet.create({
   },
   squareButtonText: {
     color: "#FFFFFF",
+  },
+  taskButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  taskButton: {
+    backgroundColor: "#468585",
+    padding: 5,
+    borderRadius: 5,
+    marginLeft: 5,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteButton: {
+    backgroundColor: "#FF4444",
+  },
+  taskButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
   },
 });

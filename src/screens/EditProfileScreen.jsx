@@ -1,52 +1,57 @@
-import React, { useState, useContext } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  Button,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  Alert,
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import * as SQLite from 'expo-sqlite';
+import React, { useState, useContext, useEffect } from 'react';
+import { SafeAreaView, View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, Image } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { AuthContext } from '../context/AuthContext';
-import BottomBar from '../components/BottomBar';
-import * as Notifications from 'expo-notifications';
+import { openDatabase } from '../DB/db';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
-// Inicializar a base de dados de forma assíncrona
-const openDatabase = async () => {
+const openDB = async () => {
   try {
-    const db = await SQLite.openDatabaseAsync('plantifydb.db');
-    console.log('Base de dados inicializada com sucesso');
+    const db = await openDatabase();
+    console.log("Banco de dados aberto com sucesso!");
     return db;
   } catch (error) {
-    console.error('Erro ao inicializar a base de dados:', error);
+    console.error("Erro ao abrir banco de dados:", error);
+    Alert.alert("Erro", "Falha ao inicializar o banco de dados SQLite.");
     throw error;
   }
 };
 
-export default function AddPlantScreen({ navigation, route }) {
-  const { user } = useContext(AuthContext);
-  const { plantId } = route.params || {};
+export default function EditProfileScreen() {
+  const navigation = useNavigation();
+  const { user, updateUser  } = useContext(AuthContext);
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [plantType, setPlantType] = useState('');
-  const [imageUri, setImageUri] = useState('https://storage.googleapis.com/tagjs-prod.appspot.com/RXQ247PXg9/820zgqtn.png');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [imageUri, setImageUri] = useState('');
+  const [db, setDb] = useState(null);
+
+  useEffect(() => {
+    const initialize = async () => {
+      const database = await openDB();
+      setDb(database);
+
+      if (user) {
+        setName(user.name || '');
+        setEmail(user.email || '');
+        setImageUri(user.image || 'https://via.placeholder.com/150');
+      }
+    };
+    initialize();
+  }, [user]);
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
     if (!permissionResult.granted) {
-      Alert.alert('Permissão necessária', 'Permita o acesso à galeria para escolher uma imagem.');
+      Alert.alert('Permissão negada', 'É necessário permitir o acesso à galeria.');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['image'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [4, 4],
+      aspect: [1, 1],
       quality: 1,
     });
 
@@ -56,137 +61,152 @@ export default function AddPlantScreen({ navigation, route }) {
   };
 
   const handleSave = async () => {
-    if (!name) {
-      Alert.alert('Erro', 'O nome da planta é obrigatório.');
+    if (!db) {
+      Alert.alert('Erro', 'Banco de dados não inicializado.');
       return;
     }
-    if (!user || !user.iduser) {
-      console.error('Erro: autenticação inválida:', { user });
-      Alert.alert('Erro', 'Utilizador não autenticado. Faça login novamente.');
-      navigation.navigate('Login');
+
+    if (!name.trim() || !email.trim()) {
+      Alert.alert('Erro', 'Nome e email são obrigatórios.');
       return;
     }
-    if (!plantId) {
-      console.error('Erro: plantId não fornecido:', { plantId });
-      Alert.alert('Erro', 'ID da planta não fornecido.');
-      return;
+
+    let imageBlob = imageUri;
+    if (imageUri && !imageUri.startsWith('data:image')) {
+      const imageData = await FileSystem.readAsStringAsync(imageUri, { encoding: FileSystem.EncodingType.Base64 });
+      imageBlob = `data:image/jpeg;base64,${imageData}`;
     }
 
     try {
-      const db = await openDatabase();
+      await db.withTransactionAsync(async () => {
+        const query = `
+          UPDATE users 
+          SET name = ?, email = ?, profile_image = ?
+          ${password ? ', password = ?' : ''}
+          WHERE iduser = ?`;
+        const params = [name.trim(), email.trim(), imageBlob || null];
+        if (password) params.push(password);
+        params.push(user.iduser);
 
-      // Verificar se a planta existe em plants
-      const plantExists = await db.getFirstAsync(
-        'SELECT idplant FROM plants WHERE idplant = ?',
-        [plantId]
-      );
-      if (!plantExists) {
-        console.error('Planta não encontrada:', { plantId });
-        Alert.alert('Erro', 'Planta não encontrada na base de dados.');
-        return;
-      }
+        await db.runAsync(query, params);
 
-      // Inserir em plants_acc
-      const plantAccResult = await db.runAsync(
-        'INSERT INTO plants_acc (name, creation_date, description, image, iduser, idplant) VALUES (?, ?, ?, ?, ?, ?)',
-        [name, new Date().toISOString(), description || 'Planta associada pelo utilizador', imageUri, user.iduser, plantId]
-      );
-      const plantAccId = plantAccResult.lastInsertRowId;
-      console.log('Planta associada ao utilizador:', { name, iduser: user.iduser, idplants_acc: plantAccId, idplant: plantId });
+        const updatedUser  = { ...user, name: name.trim(), email: email.trim(), image: imageBlob || user.image };
+        if (password) updatedUser .password = password; // Note: Criptografe a senha em produção
+        updateUser (updatedUser );
 
-      // Criar tarefa padrão "Regar"
-      const notificationTypeResult = await db.getFirstAsync(
-        'SELECT idnotification_type FROM notification_types WHERE notification_type = ?',
-        ['Regar']
-      );
-      const notificationTypeId = notificationTypeResult ? notificationTypeResult.idnotification_type : 1;
-
-      const dueDate = new Date();
-      const notificationResult = await db.runAsync(
-        'INSERT INTO notifications (message, due_date, is_read, id_notification_type, idplants_acc) VALUES (?, ?, ?, ?, ?)',
-        ['Regar', dueDate.toISOString(), 0, notificationTypeId, plantAccId]
-      );
-      const notificationId = notificationResult.lastInsertRowId;
-      console.log('Tarefa semanal criada:', { id: notificationId, message: 'Regar', due_date: dueDate.toISOString() });
-
-      // Agendar notificação
-      const notificationIdentifier = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: 'Tarefa: Regar',
-          body: `Hora de regar a planta ${name}!`,
-        },
-        trigger: { date: dueDate },
+        Alert.alert('Sucesso', 'Perfil atualizado com sucesso!', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
       });
-      console.log('Notificação agendada:', { identifier: notificationIdentifier });
-
-      Alert.alert('Sucesso', 'Planta associada com sucesso.');
-      navigation.navigate('YourPlants');
     } catch (error) {
-      console.error('Erro ao associar planta:', error);
-      Alert.alert('Erro', 'Não foi possível associar a planta.');
+      console.error('Erro ao atualizar perfil:', error);
+      Alert.alert('Erro', `Falha ao atualizar o perfil: ${error.message}`);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <TouchableOpacity onPress={pickImage}>
-        <Image source={{ uri: imageUri }} style={styles.image} />
-        <Text style={styles.changeImageText}>Alterar imagem</Text>
-      </TouchableOpacity>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Nome da planta"
-        value={name}
-        onChangeText={setName}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Descrição"
-        value={description}
-        onChangeText={setDescription}
-        multiline
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Tipo de planta"
-        value={plantType}
-        onChangeText={setPlantType}
-      />
-
-      <Button title="Guardar alterações" onPress={handleSave} color="#4CAF50" />
-
-      <BottomBar />
-    </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.background}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Editar Perfil</Text>
+          <TouchableOpacity style={styles.imageContainer} onPress={pickImage}>
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.profileImage}
+            />
+            <Text style={styles.changeImageText}>Alterar Imagem</Text>
+          </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            value={name}
+            onChangeText={setName}
+            placeholder="Nome"
+            autoCapitalize="words"
+          />
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Email"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Nova Senha (opcional)"
+            secureTextEntry
+          />
+          <TouchableOpacity style={styles.button} onPress={handleSave}>
+            <Text style={styles.buttonText}>Salvar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  container: { flex: 1 },
+  background: {
     flex: 1,
+    backgroundColor: '#F0F8FF',
+    justifyContent: 'center',
     padding: 20,
-    backgroundColor: '#ffffff',
   },
-  image: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    alignSelf: 'center',
-    marginBottom: 10,
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 5,
+  },
+  title: { 
+    fontSize: 28, 
+    color: '#468585', 
+    fontWeight: 'bold', 
+    textAlign: 'center', 
+    marginBottom: 20,
+  },
+  imageContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: '#468585',
   },
   changeImageText: {
-    textAlign: 'center',
-    color: '#007BFF',
-    marginBottom: 20,
+    color: '#468585',
+    fontSize: 14,
+    marginTop: 5,
   },
   input: {
     height: 50,
-    borderColor: '#cccccc',
+    borderColor: '#468585',
     borderWidth: 1,
-    paddingHorizontal: 15,
     borderRadius: 10,
+    padding: 10,
     marginBottom: 15,
+    fontSize: 16,
+    backgroundColor: '#F9F9F9',
+  },
+  button: { 
+    backgroundColor: '#468585', 
+    padding: 15, 
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  buttonText: { 
+    color: '#FFFFFF', 
+    textAlign: 'center', 
+    fontSize: 18,
   },
 });

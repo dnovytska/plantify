@@ -50,7 +50,7 @@ export default function HeaderDropdown() {
         style={styles.trigger}
         accessibilityLabel="Abrir menu de navegação"
       >
-        <Text style={styles.username}>{user?.name || 'Usuário'}</Text>
+        <Text style={styles.username}>{user?.name || 'utilizador'}</Text>
         <Text style={styles.arrow}>{visible ? '▲' : '▼'}</Text>
       </TouchableOpacity>
 

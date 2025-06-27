@@ -26,15 +26,15 @@ export default function LoginScreen({ navigation }) {
         await initializeDatabase(database);
         setDb(database);
       } catch (error) {
-        console.error('Erro ao inicializar o banco de dados:', error);
-        Alert.alert('Erro', 'Não foi possível inicializar o banco de dados.');
+        console.error('Erro ao inicializar o Base de dados:', error);
+        Alert.alert('Erro', 'Não foi possível inicializar o Base de dados.');
       }
     };
     initDb();
   }, []);
 
   const getFirstAsync = async (sql, params = []) => {
-    if (!db) throw new Error('Banco de dados não inicializado');
+    if (!db) throw new Error('Base de dados não inicializado');
     try {
       const row = await db.getFirstAsync(sql, params);
       return row ?? null;
@@ -52,7 +52,7 @@ export default function LoginScreen({ navigation }) {
     try {
       const user = await getFirstAsync('SELECT * FROM users WHERE email = ? LIMIT 1', [email.trim()]);
       if (!user) {
-        Alert.alert('Usuário não encontrado');
+        Alert.alert('utilizador não encontrado');
         return;
       }
 

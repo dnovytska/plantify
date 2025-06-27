@@ -6,38 +6,38 @@ export const AuthContext = createContext();
 
 // Provedor do contexto
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser ] = useState(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadUser = async () => {
+    const loadUser  = async () => {
       try {
-        console.log('Carregando usuário do AsyncStorage...');
-        const storedUser = await AsyncStorage.getItem('user');
-        console.log('Dados brutos do AsyncStorage:', storedUser);
-        if (storedUser) {
-          const parsedUser = JSON.parse(storedUser);
-          console.log('Usuário parseado:', parsedUser);
-          if (parsedUser && parsedUser.iduser) {
-            setUser(parsedUser);
+        console.log('Carregando utilizador do AsyncStorage...');
+        const storedUser  = await AsyncStorage.getItem('user');
+        console.log('Dados brutos do AsyncStorage:', storedUser );
+        if (storedUser ) {
+          const parsedUser  = JSON.parse(storedUser );
+          console.log('utilizador parseado:', parsedUser );
+          if (parsedUser  && parsedUser .iduser) {
+            setUser (parsedUser );
             setLoggedIn(true); // Garante que loggedIn seja true se user for válido
-            console.log('Usuário carregado, definindo loggedIn como true');
+            console.log('utilizador carregado, definindo loggedIn como true');
           } else {
-            console.warn('Usuário parseado não contém iduser:', parsedUser);
+            console.warn('utilizador parseado não contém iduser:', parsedUser );
             await AsyncStorage.removeItem('user'); // Limpa dados inválidos
           }
         } else {
-          console.log('Nenhum usuário encontrado no AsyncStorage');
+          console.log('Nenhum utilizador encontrado no AsyncStorage');
         }
       } catch (error) {
-        console.error('Erro ao carregar dados do usuário:', error);
+        console.error('Erro ao carregar dados do utilizador:', error);
       } finally {
         setIsLoading(false);
-        console.log('Estado final após loadUser:', { user, loggedIn, isLoading: false });
+        console.log('Estado final após loadUser :', { user, loggedIn, isLoading: false });
       }
     };
-    loadUser();
+    loadUser ();
   }, []);
 
   const login = async (userData) => {
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
       if (!userData.iduser) {
         throw new Error('Dados de login inválidos: iduser ausente');
       }
-      setUser(userData);
+      setUser (userData);
       setLoggedIn(true);
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       console.log('Login concluído, estado atual:', { user: userData, loggedIn: true });
@@ -59,7 +59,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       console.log('Iniciando logout...');
-      setUser(null);
+      setUser (null);
       setLoggedIn(false);
       await AsyncStorage.removeItem('user');
       console.log('Logout concluído, estado atual:', { user: null, loggedIn: false });
@@ -69,7 +69,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const value = { user, loggedIn, login, logout, isLoading };
+  // Função para atualizar os dados do usuário
+  const updateUser  = (updatedUser ) => {
+    setUser (updatedUser );
+    AsyncStorage.setItem('user', JSON.stringify(updatedUser )); // Atualiza o AsyncStorage
+    console.log('Usuário atualizado:', updatedUser );
+  };
+
+  const value = { user, loggedIn, login, logout, updateUser , isLoading };
 
   console.log('AuthProvider fornecendo valor:', value);
 

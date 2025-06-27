@@ -2,20 +2,23 @@ import React, { useState, useEffect } from "react";
 import { SafeAreaView, View, Text, TouchableOpacity, Alert, StyleSheet } from "react-native";
 import { openDatabase } from "../DB/db";
 import { Picker } from '@react-native-picker/picker';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 const openDB = async () => {
   try {
     const db = await openDatabase();
-    console.log("Banco de dados aberto com sucesso!");
+    console.log("Base de dados aberto com sucesso!");
     return db;
   } catch (error) {
-    console.error("Erro ao abrir banco de dados:", error);
-    Alert.alert("Erro", "Falha ao inicializar o banco de dados SQLite.");
+    console.error("Erro ao abrir Base de dados:", error);
+    Alert.alert("Erro", "Falha ao inicializar o Base de dados SQLite.");
     throw error;
   }
 };
 
-export default function CreateDiseaseScreen({ route }) {
+export default function CreateDiseaseScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
   const { plantId } = route.params; // Recebendo o ID da planta
   const [selectedDiseaseId, setSelectedDiseaseId] = useState(null);
   const [diseases, setDiseases] = useState([]);
@@ -43,7 +46,7 @@ export default function CreateDiseaseScreen({ route }) {
 
   const handleAddDisease = async () => {
     if (!db) {
-      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      Alert.alert('Erro', 'Base de dados não inicializado.');
       return;
     }
 
@@ -59,7 +62,12 @@ export default function CreateDiseaseScreen({ route }) {
         [plantId, selectedDiseaseId]
       );
 
-      Alert.alert('Sucesso', 'Doença associada à planta com sucesso!');
+      Alert.alert('Sucesso', 'Doença associada à planta com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => navigation.navigate('Plant', { plantId }),
+        },
+      ]);
       setSelectedDiseaseId(null); // Limpa a seleção
     } catch (error) {
       console.error('Erro ao associar doença:', error);

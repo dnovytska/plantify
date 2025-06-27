@@ -6,11 +6,11 @@ import { openDatabase } from "../DB/db";
 const openDB = async () => {
   try {
     const db = await openDatabase();
-    console.log("Banco de dados aberto com sucesso!");
+    console.log("Base de dados aberto com sucesso!");
     return db;
   } catch (error) {
-    console.error("Erro ao abrir banco de dados:", error);
-    Alert.alert("Erro", "Falha ao inicializar o banco de dados SQLite.");
+    console.error("Erro ao abrir Base de dados:", error);
+    Alert.alert("Erro", "Falha ao inicializar o Base de dados SQLite.");
     throw error;
   }
 };
@@ -60,7 +60,7 @@ export default function TaskScreen() {
 
   const handleToggleTaskCompletion = async () => {
     if (!db) {
-      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      Alert.alert('Erro', 'Base de dados não inicializado.');
       return;
     }
 
@@ -81,7 +81,7 @@ export default function TaskScreen() {
 
   const handleDeleteTask = async () => {
     if (!db) {
-      Alert.alert('Erro', 'Banco de dados não inicializado.');
+      Alert.alert('Erro', 'Base de dados não inicializado.');
       return;
     }
 

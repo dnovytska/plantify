@@ -103,7 +103,7 @@ export default function CreateTaskScreen() {
 
   const handleSave = async () => {
     if (!db) {
-      Alert.alert('Erro', 'Banco de dados não inicializado. Tente novamente.');
+      Alert.alert('Erro', 'Base de dados não inicializado. Tente novamente.');
       return;
     }
 

@@ -12,7 +12,7 @@ export default function AboutScreen() {
       />
       <Text style={styles.description}>
         Este aplicativo foi desenvolvido para ajudar você a cuidar de suas plantas de forma prática e eficiente. 
-        Com funcionalidades que permitem o gerenciamento de tarefas, identificação de plantas e monitoramento de doenças, 
+        Com funcionalidades que permitem o gestão de tarefas, identificação de plantas e monitoramento de doenças, 
         nosso objetivo é facilitar a vida dos amantes de jardinagem e botânica.
       </Text>
       <Text style={styles.description}>

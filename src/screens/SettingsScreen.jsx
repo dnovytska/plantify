@@ -1,4 +1,3 @@
-// src/screens/SettingsScreen.js
 import React, { useContext } from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -19,10 +18,9 @@ export default function SettingsScreen() {
         <View style={styles.header}>
           <TouchableOpacity style={styles.avatarContainer}>
             <Image
-              source={{ uri: 'https://via.placeholder.com/100' }} // Substitua por uma URL de imagem real ou use um estado para a foto
+              source={{ uri: user?.image || 'https://via.placeholder.com/100' }} // Usa a imagem do usuário ou uma padrão
               style={styles.avatar}
             />
-            <Text style={styles.addIcon}>+</Text>
           </TouchableOpacity>
           <Text style={styles.userName}>{user?.name || 'User  Name'}</Text>
           <Text style={styles.email}>{user?.email || 'user@example.com'}</Text>
@@ -31,16 +29,9 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.description}>
-          Gerencie suas configurações e preferências aqui.
-        </Text>
-
         <View style={styles.optionsContainer}>
           <TouchableOpacity style={styles.optionButton} onPress={() => navigation.navigate('Notifications')}>
             <Text style={styles.optionText}>Notificações</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.optionButton} onPress={() => navigation.navigate('Privacy')}>
-            <Text style={styles.optionText}>Privacidade</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.optionButton} onPress={() => navigation.navigate('About')}>
             <Text style={styles.optionText}>Sobre</Text>
@@ -75,18 +66,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#468585',
   },
-  addIcon: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: '#468585',
-    color: '#fff',
-    width: 20,
-    height: 20,
-    textAlign: 'center',
-    borderRadius: 10,
-    fontSize: 14,
-  },
   userName: {
     fontSize: 24,
     color: '#468585',
@@ -106,12 +85,6 @@ const styles = StyleSheet.create({
   editButtonText: {
     color: '#fff',
     fontSize: 16,
-  },
-  description: {
-    fontSize: 16,
-    color: '#468585',
-    textAlign: 'center',
-    marginBottom: 20,
   },
   optionsContainer: {
     marginTop: 20,

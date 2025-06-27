@@ -106,7 +106,7 @@ export default function EditPlantScreen() {
     try {
       const dbToUse = database || db;
       if (!dbToUse) {
-        console.log('Banco de dados não inicializado');
+        console.log('Base de dados não inicializado');
         return {};
       }
 
@@ -140,7 +140,7 @@ export default function EditPlantScreen() {
 
       console.log('Executando query:', query, 'com params:', params);
       const localTypes = await dbToUse.getAllAsync(query, params);
-      console.log('Resultados do banco:', localTypes);
+      console.log('Resultados do Base:', localTypes);
 
       const typesByCategory = localTypes.reduce((acc, plantType) => {
         const typeCategory = (plantType.watering_name?.toLowerCase() || plantType.sunlight_name?.toLowerCase() ||
@@ -165,8 +165,8 @@ export default function EditPlantScreen() {
 
       return typesByCategory;
     } catch (error) {
-      console.error('Erro ao carregar tipos de plantas do banco local:', error);
-      Alert.alert('Erro', `Não foi possível carregar os tipos de plantas do banco local. Detalhes: ${error.message}`);
+      console.error('Erro ao carregar tipos de plantas do Base local:', error);
+      Alert.alert('Erro', `Não foi possível carregar os tipos de plantas do Base local. Detalhes: ${error.message}`);
       return {};
     }
   };
@@ -234,7 +234,7 @@ export default function EditPlantScreen() {
 
   const handleSave = async () => {
     if (!db) {
-      Alert.alert('Erro', 'Banco de dados não inicializado. Tente novamente.');
+      Alert.alert('Erro', 'Base de dados não inicializado. Tente novamente.');
       return;
     }
 
@@ -280,7 +280,7 @@ export default function EditPlantScreen() {
           [plantName.trim(), description || '', imageBlob, plantId]
         );
 
-        console.log('Planta atualizada com sucesso no banco de dados.');
+        console.log('Planta atualizada com sucesso no Base de dados.');
       });
 
       Alert.alert('Sucesso', 'Planta atualizada com sucesso!', [
@@ -304,7 +304,7 @@ export default function EditPlantScreen() {
 
   const handleCreatePlantType = async () => {
     if (!db) {
-      Alert.alert('Erro', 'Banco de dados não inicializado. Tente novamente.');
+      Alert.alert('Erro', 'Base de dados não inicializado. Tente novamente.');
       return;
     }
 
