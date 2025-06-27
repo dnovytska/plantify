@@ -11,7 +11,7 @@ export default function AboutScreen() {
         style={styles.logo}
       />
       <Text style={styles.description}>
-        Este aplicativo foi desenvolvido para ajudar você a cuidar de suas plantas de forma prática e eficiente. 
+        Este aplicativo foi desenvolvido para ajudar você a cuidar de YourPlants de forma prática e eficiente. 
         Com funcionalidades que permitem o gestão de tarefas, identificação de plantas e monitoramento de doenças, 
         nosso objetivo é facilitar a vida dos amantes de jardinagem e botânica.
       </Text>

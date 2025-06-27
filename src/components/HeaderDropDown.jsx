@@ -7,11 +7,13 @@ import {
   StyleSheet,
   Animated,
   Pressable,
+  Alert,
+  Image,
 } from 'react-native';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigation } from '@react-navigation/native';
 
-const MENU_HEIGHT = 280; // Ajustei a altura para caber todos os itens confortavelmente
+const MENU_HEIGHT = 420; // Ajustei a altura para caber todos os itens confortavelmente
 
 export default function HeaderDropdown() {
   const [visible, setVisible] = useState(false);
@@ -36,10 +38,23 @@ export default function HeaderDropdown() {
     navigation.navigate(screen);
   };
 
-  // Função para logout
+  // Função para logout com confirmação
   const handleLogout = () => {
-    setVisible(false);
-    logout();
+    Alert.alert(
+      'Confirmar Sair',
+      'Tem certeza que deseja sair?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sair',
+          onPress: () => {
+            setVisible(false);
+            logout();
+          },
+        },
+      ],
+      { cancelable: false }
+    );
   };
 
   return (
@@ -69,26 +84,29 @@ export default function HeaderDropdown() {
             ]}
             onStartShouldSetResponder={() => true} // Evita que o Pressable externo feche ao clicar no menu
           >
-            <Text style={styles.menuTitle}>Menu</Text>
-            <TouchableOpacity onPress={() => handleNavigate('Home')}>
-              <Text style={styles.menuItem}>Página Inicial</Text>
+            {/* Removido o título do menu */}
+            <TouchableOpacity onPress={() => handleNavigate('YourPlants')} style={styles.menuItemContainer}>
+              <Image source={require('../../assets/images/many-plants.png')} style={styles.menuIcon} />
+              <Text style={styles.menuItem}>YourPlants</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigate('YourPlants')}>
-              <Text style={styles.menuItem}>Suas Plantas</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigate('Settings')}>
+            <TouchableOpacity onPress={() => handleNavigate('Settings')} style={styles.menuItemContainer}>
+              <Image source={require('../../assets/images/gear.png')} style={styles.menuIcon} />
               <Text style={styles.menuItem}>Configurações</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigate('EditProfile')}>
+            <TouchableOpacity onPress={() => handleNavigate('EditProfile')} style={styles.menuItemContainer}>
+              <Image source={require('../../assets/images/man.png')} style={styles.menuIcon} />
               <Text style={styles.menuItem}>Editar Perfil</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigate('AddPlant')}>
+            <TouchableOpacity onPress={() => handleNavigate('AddPlant')} style={styles.menuItemContainer}>
+              <Image source={require('../../assets/images/plant.png')} style={styles.menuIcon} />
               <Text style={styles.menuItem}>Adicionar Planta</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleNavigate('PlantIdentification')}>
+            <TouchableOpacity onPress={() => handleNavigate('PlantIdentification')} style={styles.menuItemContainer}>
+              <Image source={require('../../assets/images/camera.png')} style={styles.menuIcon} />
               <Text style={styles.menuItem}>Identificar Planta</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleLogout}>
+            <TouchableOpacity onPress={handleLogout} style={styles.menuItemContainer}>
+              <Image source={require('../../assets/images/home.png')} style={styles.menuIcon} />
               <Text style={styles.menuItem}>Sair</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -106,7 +124,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   username: {
-    fontSize: 16,
+    fontSize: 18, // Aumentado o tamanho do texto
     color: '#2F2182', 
     fontWeight: 'bold',
   },
@@ -133,15 +151,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
-  menuTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2F2182',
-    marginBottom: 10,
+  menuItemContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  menuIcon: {
+    width: 50,
+    height: 50,
+    marginRight: 10,
   },
   menuItem: {
-    fontSize: 16,
+    fontSize: 18, // Aumentado o tamanho do texto
     color: '#fff',
-    paddingVertical: 8,
   },
 });

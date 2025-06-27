@@ -52,18 +52,22 @@ export default function LoginScreen({ navigation }) {
     try {
       const user = await getFirstAsync('SELECT * FROM users WHERE email = ? LIMIT 1', [email.trim()]);
       if (!user) {
-        Alert.alert('utilizador não encontrado');
+        Alert.alert('Usuário não encontrado');
         return;
       }
+
+      console.log('Usuário encontrado:', user); // Log para verificar se o usuário foi encontrado
 
       const hashed = await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
         password.trim()
       );
 
+      console.log('Hash da senha:', hashed); // Log para verificar o hash da senha
+
       if (hashed === user.password) {
         const userData = {
-          id: user.iduser,
+          iduser: user.iduser, // Certifique-se de que o campo correto é usado
           name: user.name || user.username,
           email: user.email,
         };

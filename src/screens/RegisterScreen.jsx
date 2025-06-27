@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import * as SQLite from 'expo-sqlite';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ImageBackground, Dimensions } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { AuthContext } from '../context/AuthContext';
+import { openDatabase, initializeDatabase } from '../DB/db';
 
 export default function RegisterScreen({ navigation }) {
   const { login } = useContext(AuthContext);
@@ -18,92 +18,10 @@ export default function RegisterScreen({ navigation }) {
     async function initDb() {
       try {
         console.log('Inicializando Base de dados...');
-        const database = await SQLite.openDatabaseAsync('plantifydb.db');
-        await database.execAsync(`
-          CREATE TABLE IF NOT EXISTS users (
-            iduser INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            name TEXT,
-            created_at datetime NOT NULL,
-            password TEXT NOT NULL,
-            profile_image TEXT
-          );
-          CREATE TABLE IF NOT EXISTS care_levels (
-            idcare_level INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-          );
-          CREATE TABLE IF NOT EXISTS growth_rates (
-            idgrowth_rate INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-          );
-          CREATE TABLE IF NOT EXISTS sunlight_levels (
-            idsunlight_level INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-          );
-          CREATE TABLE IF NOT EXISTS watering_levels (
-            idwatering_level INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-          );
-          CREATE TABLE IF NOT EXISTS plant_types (
-            idplant_type INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            watering_id INTEGER,
-            sunlight_id INTEGER,
-            growth_rate_id INTEGER,
-            care_level_id INTEGER,
-            FOREIGN KEY (watering_id) REFERENCES watering_levels(idwatering_level),
-            FOREIGN KEY (sunlight_id) REFERENCES sunlight_levels(idsunlight_level),
-            FOREIGN KEY (growth_rate_id) REFERENCES growth_rates(idgrowth_rate),
-            FOREIGN KEY (care_level_id) REFERENCES care_levels(idcare_level)
-          );
-          CREATE TABLE IF NOT EXISTS plants (
-            idplant INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            image TEXT,
-            plant_type_id INTEGER,
-            FOREIGN KEY (plant_type_id) REFERENCES plant_types(idplant_type)
-          );
-          CREATE TABLE IF NOT EXISTS plants_acc (
-            idplants_acc INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            creation_date TEXT NOT NULL,
-            description TEXT,
-            image TEXT,
-            iduser INTEGER,
-            idplant INTEGER,
-            FOREIGN KEY (iduser) REFERENCES users(iduser),
-            FOREIGN KEY (idplant) REFERENCES plants(idplant)
-          );
-          CREATE TABLE IF NOT EXISTS diseases (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            description TEXT
-          );
-          CREATE TABLE IF NOT EXISTS diseases_plants_acc (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            plants_acc_id INTEGER,
-            disease_id INTEGER,
-            FOREIGN KEY (plants_acc_id) REFERENCES plants_acc(idplants_acc),
-            FOREIGN KEY (disease_id) REFERENCES diseases(id)
-          );
-          CREATE TABLE IF NOT EXISTS notification_types (
-            idnotification_type INTEGER PRIMARY KEY AUTOINCREMENT,
-            notification_type TEXT
-          );
-          CREATE TABLE IF NOT EXISTS notifications (
-            idnotification INTEGER PRIMARY KEY AUTOINCREMENT,
-            idplants_acc INTEGER,
-            message TEXT NOT NULL,
-            due_date TEXT,
-            is_read INTEGER DEFAULT 0,
-            id_notification_type INTEGER,
-            FOREIGN KEY (idplants_acc) REFERENCES plants_acc(idplants_acc),
-            FOREIGN KEY (id_notification_type) REFERENCES notification_types(idnotification_type)
-          );
-        `);
+        const database = await openDatabase();
+        await initializeDatabase(database);
         setDb(database);
-        console.log('Base de dados inicializado com sucesso');
+        console.log('Base de dados inicializada com sucesso');
       } catch (error) {
         console.error('Erro ao inicializar Base de dados:', error);
         Alert.alert('Erro', 'Falha ao preparar o Base de dados');
@@ -116,8 +34,8 @@ export default function RegisterScreen({ navigation }) {
 
   const handleRegister = async () => {
     if (!db) {
-      console.warn('Base de dados não está pronto');
-      Alert.alert('Erro', 'Base de dados não está pronto');
+      console.warn('Base de dados não está pronta');
+      Alert.alert('Erro', 'Base de dados não está pronta');
       return;
     }
 
@@ -129,11 +47,11 @@ export default function RegisterScreen({ navigation }) {
 
     try {
       console.log('Verificando se o email já está registrado:', email);
-      const existingUser = await db.getFirstAsync(
+      const existingUser  = await db.getFirstAsync(
         'SELECT * FROM users WHERE email = ?',
         [email.trim()]
       );
-      if (existingUser) {
+      if (existingUser ) {
         console.warn('Email já registrado:', email);
         Alert.alert('Erro', 'Email já registrado');
         return;
@@ -187,100 +105,111 @@ export default function RegisterScreen({ navigation }) {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Criar Conta</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Nome de utilizador"
-        value={username}
-        onChangeText={setUsername}
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Nome"
-        value={name}
-        onChangeText={setName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Senha"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        autoCapitalize="none"
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="URL da Imagem de Perfil (opcional)"
-        value={profileImage}
-        onChangeText={setProfileImage}
-      />
-      <TouchableOpacity style={styles.button} onPress={handleRegister}>
-        <Text style={styles.buttonText}>Registrar</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.linkButton}
-        onPress={() => navigation.navigate('Login')}
-      >
-        <Text style={styles.linkText}>Já tem uma conta? Faça login</Text>
-      </TouchableOpacity>
-    </View>
+    <ImageBackground
+      source={require('../../assets/loginleaf.png')} // Use a mesma imagem de fundo que o LoginScreen
+      style={styles.background}
+      imageStyle={styles.imageStyle}
+    >
+      <View style={styles.container}>
+        <Text style={styles.title}>Criar Conta</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Nome de utilizador"
+          value={username}
+          onChangeText={setUsername}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Nome"
+          value={name}
+          onChangeText={setName}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Senha"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          autoCapitalize="none"
+        />
+        <TouchableOpacity style={styles.button} onPress={handleRegister}>
+          <Text style={styles.buttonText}>Registrar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.linkButton}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={styles.linkText}>Já tem uma conta? Faça login</Text>
+        </TouchableOpacity>
+      </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+    resizeMode: 'cover',
+  },
+  imageStyle: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    height: Dimensions.get('window').height * 0.6,
+  },
   container: {
     flex: 1,
-    padding: 20,
     justifyContent: 'center',
-    backgroundColor: '#f0fff0',
+    paddingHorizontal: 30,
+    backgroundColor: 'transparent',
+    borderRadius: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#468585',
+    fontSize: 64,
+    fontWeight: '400',
+    color: '#381d71',
     textAlign: 'center',
-    marginBottom: 30,
+    marginBottom: 40,
+    fontFamily: 'MIchroma',
   },
   input: {
-    height: 50,
-    borderColor: '#468585',
     borderWidth: 2,
-    borderRadius: 10,
-    marginBottom: 15,
-    paddingHorizontal: 15,
-    backgroundColor: '#fff',
-    fontSize: 16,
+    borderColor: '#3a6e6d',
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    marginBottom: 20,
+    fontSize: 18,
     color: '#333',
   },
   button: {
-    backgroundColor: '#468585',
-    paddingVertical: 15,
-    borderRadius: 10,
+    backgroundColor: '#a6b5f5',
+    paddingVertical: 14,
+    paddingHorizontal: 25,
+    borderRadius: 30,
     alignItems: 'center',
-    marginTop: 10,
+    marginBottom: 30,
   },
   buttonText: {
-    color: '#fff',
+    color: 'white',
     fontSize: 18,
-    fontWeight: 'bold',
   },
   linkButton: {
     marginTop: 20,
     alignItems: 'center',
   },
   linkText: {
-    color: '#B0A8F0',
-    fontSize: 16,
+    color: '#381d71',
+    fontSize: 14,
     textDecorationLine: 'underline',
   },
   loadingText: {

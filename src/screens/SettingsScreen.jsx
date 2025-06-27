@@ -30,9 +30,6 @@ export default function SettingsScreen() {
         </View>
 
         <View style={styles.optionsContainer}>
-          <TouchableOpacity style={styles.optionButton} onPress={() => navigation.navigate('Notifications')}>
-            <Text style={styles.optionText}>Notificações</Text>
-          </TouchableOpacity>
           <TouchableOpacity style={styles.optionButton} onPress={() => navigation.navigate('About')}>
             <Text style={styles.optionText}>Sobre</Text>
           </TouchableOpacity>

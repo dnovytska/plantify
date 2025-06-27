@@ -9,11 +9,6 @@ const BottomBar = () => {
     <View style={styles.bottomBar}>
       <TouchableOpacity 
         style={styles.icon} 
-        onPress={() => navigation.navigate('Home')}>
-        <Image source={require("../../assets/images/home.png")} style={styles.iconContent} />
-      </TouchableOpacity>
-      <TouchableOpacity 
-        style={styles.icon} 
         onPress={() => navigation.navigate('PlantIdentification')}>
         <Image source={require("../../assets/images/camera.png")} style={styles.iconContent} />
       </TouchableOpacity>

@@ -20,7 +20,7 @@ export default function YourPlantsScreen({ navigation, route }) {
 
       if (!user || !user.iduser) {
         console.warn('utilizador não logado ou iduser ausente:', { user, loggedIn });
-        Alert.alert('Erro', 'Você precisa estar logado para visualizar suas plantas. Faça login primeiro.');
+        Alert.alert('Erro', 'Você precisa estar logado para visualizar YourPlants. Faça login primeiro.');
         navigation.navigate('Login');
         return;
       }
@@ -41,7 +41,7 @@ export default function YourPlantsScreen({ navigation, route }) {
         setIsDataLoaded(true);
       } catch (error) {
         console.error('Erro ao carregar plantas:', error);
-        Alert.alert('Erro', `Falha ao carregar suas plantas: ${error.message}`);
+        Alert.alert('Erro', `Falha ao carregar YourPlants: ${error.message}`);
       }
     };
     initialize();
@@ -70,7 +70,7 @@ export default function YourPlantsScreen({ navigation, route }) {
   if (!isDataLoaded || isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Carregando suas plantas...</Text>
+        <Text style={styles.loadingText}>Carregando YourPlants...</Text>
       </View>
     );
   }

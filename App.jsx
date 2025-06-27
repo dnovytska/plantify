@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View, Text } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
@@ -24,7 +24,6 @@ import TaskScreen from './src/screens/TaskScreen';
 import CreateDiseaseScreen from './src/screens/CreateDiseaseScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import DiseaseScreen from './src/screens/DiseaseScreen';
-import NotificationsScreen from './src/screens/NotificationsScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -35,19 +34,19 @@ Notifications.setNotificationHandler({
 });
 
 // Navegador de autenticação
-const AuthStack = createStackNavigator();
+const Stack = createNativeStackNavigator();
+
 function AuthNavigator() {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-      <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
-      <AuthStack.Screen name="Login" component={LoginScreen} />
-      <AuthStack.Screen name="Register" component={RegisterScreen} />
-    </AuthStack.Navigator>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+    </Stack.Navigator>
   );
 }
 
 // Navegador principal
-const AppStack = createStackNavigator();
 function AppNavigator() {
   const { loggedIn, isLoading } = useContext(AuthContext);
   console.log('AppNavigator estado:', { loggedIn, isLoading });
@@ -66,34 +65,32 @@ function AppNavigator() {
   }
   return (
     <>
-      <AppStack.Navigator
+      <Stack.Navigator
         screenOptions={{
+          headerTitle: "", // Remove o título do cabeçalho
           headerRight: () => <HeaderDropdown />,
-          headerTitleAlign: 'center',
         }}
         initialRouteName="YourPlants"
       >
-        <AppStack.Screen name="Home" component={HomeScreen} />
-        <AppStack.Screen name="YourPlants" component={YourPlantsScreen} />
-        <AppStack.Screen name="Settings" component={SettingsScreen} />
-        <AppStack.Screen name="EditProfile" component={EditProfileScreen} />
-        <AppStack.Screen name="AddPlant" component={AddPlantScreen} />
-        <AppStack.Screen name="Plant" component={PlantScreen} />
-        <AppStack.Screen name="EditPlantScreen" component={EditPlantScreen} />
-        <AppStack.Screen name="PlantIdentification" component={PlantIdentificationScreen} />
-        <AppStack.Screen name="CreateTask" component={CreateTaskScreen} />
-        <AppStack.Screen name="EditTask" component={EditTaskScreen} />
-        <AppStack.Screen name="Task" component={TaskScreen} />
-        <AppStack.Screen name="CreateDiseaseScreen" component={CreateDiseaseScreen} />
-        <AppStack.Screen name="DiseaseScreen" component={DiseaseScreen} />
-        <AppStack.Screen name="About" component={AboutScreen} />
-        <AppStack.Screen name="Notifications" component={NotificationsScreen} />
-      </AppStack.Navigator>
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="YourPlants" component={YourPlantsScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="AddPlant" component={AddPlantScreen} />
+        <Stack.Screen name="Plant" component={PlantScreen} />
+        <Stack.Screen name="EditPlantScreen" component={EditPlantScreen} />
+        <Stack.Screen name="PlantIdentification" component={PlantIdentificationScreen} />
+        <Stack.Screen name="CreateTask" component={CreateTaskScreen} />
+        <Stack.Screen name="EditTask" component={EditTaskScreen} />
+        <Stack.Screen name="Task" component={TaskScreen} />
+        <Stack.Screen name="CreateDiseaseScreen" component={CreateDiseaseScreen} />
+        <Stack.Screen name="DiseaseScreen" component={DiseaseScreen} />
+        <Stack.Screen name="About" component={AboutScreen} />
+      </Stack.Navigator>
       <BottomBar /> {/* Não precisa passar a prop navigation aqui */}
     </>
   );
 }
-
 
 // Navegador raiz
 function RootNavigator() {

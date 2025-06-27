@@ -1,4 +1,3 @@
-// src/screens/WelcomeScreen.jsx
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 
@@ -66,8 +65,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   decorativeImage: {
-    width: 200,
-    height: 200,
+    width: 180,
+    height: 180,
     position: 'absolute',
   },
   topLeft: {
