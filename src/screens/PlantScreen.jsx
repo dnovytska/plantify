@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { SafeAreaView, View, ScrollView, Image, Text, Alert, StyleSheet, TouchableOpacity, Animated } from "react-native";
+import { SafeAreaView, View, ScrollView, Image, Text, Alert, StyleSheet, TouchableOpacity } from "react-native";
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
 import BottomBar from '../components/BottomBar';
 import { openDatabase, initializeDatabase } from "../DB/db";
@@ -26,7 +26,6 @@ export default function PlantScreen() {
   const [activeTaskView, setActiveTaskView] = useState('Pending');
   const [tasks, setTasks] = useState([]);
   const [diseases, setDiseases] = useState([]);
-  const scrollY = new Animated.Value(0); // Valor animado para scroll
 
   const fetchPlantDetails = useCallback(async () => {
     if (!plantId) {
@@ -143,7 +142,7 @@ export default function PlantScreen() {
             try {
               await db.runAsync('DELETE FROM notifications WHERE idnotification = ?', [taskId]);
               Alert.alert('Sucesso', 'Tarefa apagada com sucesso!');
-              await fetchPlantDetails();
+              await fetchPlantDetails(); // Atualiza a lista de tarefas
             } catch (error) {
               console.error('Erro ao apagar tarefa:', error);
               Alert.alert('Erro', `Falha ao apagar a tarefa: ${error.message}`);
@@ -152,6 +151,16 @@ export default function PlantScreen() {
         },
       ]
     );
+  };
+
+  const handleTaskPress = (task) => {
+    if (!plantId || !task.id) {
+      console.error("plantId ou taskId inválidos:", { plantId, taskId: task.id });
+      Alert.alert("Erro", "ID da planta ou tarefa não disponível.");
+      return;
+    }
+    console.log("Navegando para Task com plantId:", plantId, "e taskId:", task.id);
+    navigation.navigate('Task', { plantId, taskId: task.id });
   };
 
   const handleEditPress = () => {
@@ -181,7 +190,7 @@ export default function PlantScreen() {
             try {
               await db.runAsync('DELETE FROM diseases_plants_acc WHERE disease_id = ? AND plants_acc_id = ?', [diseaseId, plantId]);
               Alert.alert('Sucesso', 'Doença apagada com sucesso!');
-              await fetchPlantDetails();
+              await fetchPlantDetails(); // Atualiza a lista de doenças
             } catch (error) {
               console.error('Erro ao apagar doença:', error);
               Alert.alert('Erro', `Falha ao apagar a doença: ${error.message}`);
@@ -192,12 +201,24 @@ export default function PlantScreen() {
     );
   };
 
-  const handleAddDiseasePress = () => {
-    navigation.navigate('CreateDiseaseScreen', { plantId });
+  const handleAddTaskPress = () => {
+    if (!plantId) {
+      console.error("plantId undefined ao tentar adicionar tarefa!");
+      Alert.alert("Erro", "ID da planta não disponível.");
+      return;
+    }
+    console.log("Navegando para CreateTaskScreen com plantId:", plantId);
+    navigation.navigate('CreateTask', { plantId });
   };
 
-  const handleAddTaskPress = () => {
-    navigation.navigate('CreateTaskScreen', { plantId });
+  const handleAddDiseasePress = () => {
+    if (!plantId) {
+      console.error("plantId undefined ao tentar adicionar doença!");
+      Alert.alert("Erro", "ID da planta não disponível.");
+      return;
+    }
+    console.log("Navegando para CreateDiseaseScreen com plantId:", plantId);
+    navigation.navigate('CreateDiseaseScreen', { plantId });
   };
 
   const handleMarkHealthy = async (diseaseId) => {
@@ -207,22 +228,20 @@ export default function PlantScreen() {
     }
 
     Alert.alert(
-      'Confirmar Exclusão',
-      'Ao marcar esta doença como tratada, a planta será removida. Deseja continuar?',
+      'Confirmar',
+      'Tem certeza que deseja marcar esta doença como tratada?',
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Continuar',
-          style: 'destructive',
+          text: 'Marcar como Tratada',
           onPress: async () => {
             try {
-              // Remover a planta do banco de dados
-              await db.runAsync('DELETE FROM plants_acc WHERE idplants_acc = ?', [plantId]);
-              Alert.alert('Sucesso', 'Planta removida com sucesso!');
-              navigation.goBack(); // Voltar para a tela anterior
+              await db.runAsync('UPDATE diseases_plants_acc SET is_treated = 1 WHERE disease_id = ? AND plants_acc_id = ?', [diseaseId, plantId]);
+              Alert.alert('Sucesso', 'Doença marcada como tratada!');
+              await fetchPlantDetails(); // Atualiza a lista de doenças
             } catch (error) {
-              console.error('Erro ao remover planta:', error);
-              Alert.alert('Erro', `Falha ao remover a planta: ${error.message}`);
+              console.error('Erro ao marcar doença como tratada:', error);
+              Alert.alert('Erro', `Falha ao atualizar o estado: ${error.message}`);
             }
           },
         },
@@ -248,43 +267,14 @@ export default function PlantScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false }
-        )}
       >
         <View style={styles.content}>
-          <Animated.Image
+          <Image
             source={{ uri: plant.image }}
             resizeMode="contain"
-            style={{
-              ...styles.image,
-              transform: [
-                {
-                  translateX: scrollY.interpolate({
-                    inputRange: [0, 200],
-                    outputRange: [0, -50],
-                    extrapolate: 'clamp',
-                  }),
-                },
-                {
-                  scale: scrollY.interpolate({
-                    inputRange: [0, 200],
-                    outputRange: [1, 0.8],
-                    extrapolate: 'clamp',
-                  }),
-                },
-              ],
-            }}
+            style={styles.image}
           />
-          <Animated.View style={{
-            ...styles.plantInfoContainer,
-            opacity: scrollY.interpolate({
-              inputRange: [0, 200],
-              outputRange: [1, 0.5],
-              extrapolate: 'clamp',
-            }),
-          }}>
+          <View style={styles.plantInfoContainer}>
             <Text style={styles.title}>{plant.name}</Text>
             <Text style={styles.detail}>Tipo: {plant.type}</Text>
             <Text style={styles.detail}>Data de Criação: {plant.createdAt}</Text>
@@ -293,7 +283,7 @@ export default function PlantScreen() {
             <Text style={styles.detail}>Luz Solar: {plant.sunlight}</Text>
             <Text style={styles.detail}>Taxa de Crescimento: {plant.growthRate}</Text>
             <Text style={styles.detail}>Nível de Cuidado: {plant.careLevel}</Text>
-          </Animated.View>
+          </View>
 
           {diseases.length > 0 && (
             <Text style={styles.diseaseAlert}>⚠️ Esta planta está doente!</Text>
@@ -314,16 +304,16 @@ export default function PlantScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={styles.addTaskButton}
-            onPress={handleAddTaskPress}
-          >
-            <Text style={styles.addTaskButtonText}>Adicionar Tarefa</Text>
-          </TouchableOpacity>
-
           {activeTab === 'Tasks' && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Visualizar Tarefas</Text>
+              <TouchableOpacity
+                style={styles.addTaskButton}
+                onPress={handleAddTaskPress}
+              >
+                <Text style={styles.addTaskButtonText}>Adicionar Tarefa</Text>
+              </TouchableOpacity>
+
               <View style={styles.taskViewButtons}>
                 <TouchableOpacity
                   style={[styles.taskViewButton, activeTaskView === 'Pending' && styles.activeTaskViewButton]}
@@ -424,15 +414,9 @@ export default function PlantScreen() {
                     <View style={styles.diseaseButtons}>
                       <TouchableOpacity
                         style={styles.squareButton}
-                        onPress={() => handleMarkHealthy(disease.id)}
-                      >
-                        <Text style={styles.squareButtonText}>✅</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.squareButton}
                         onPress={() => handleDeleteDisease(disease.id)}
                       >
-                        <Text style={styles.squareButtonText}>🗑️</Text>
+                        <Text style={styles.squareButtonText}>✅</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -448,7 +432,7 @@ export default function PlantScreen() {
       >
         <Text style={styles.editButtonText}>✏️</Text>
       </TouchableOpacity>
-      <BottomBar navigation={navigation} />
+      <BottomBar />
     </SafeAreaView>
   );
 }
@@ -457,6 +441,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   scrollView: {
     flex: 1,
@@ -496,7 +485,7 @@ const styles = StyleSheet.create({
   },
   diseaseAlert: {
     fontSize: 18,
-    color: "#FF 0000",
+    color: "#FF0000",
     marginBottom: 10,
   },
   buttons: {
@@ -584,71 +573,44 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    zIndex: 1,
   },
   editButtonText: {
     color: "#FFFFFF",
-    fontSize: 20,
-    fontWeight: "bold",
+    fontSize: 24,
   },
-  squareButton: {
+  addTaskButton: {
     backgroundColor: "#468585",
-    width: 40,
-    height: 40,
-    borderRadius: 5,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 5,
-  },
-  squareButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-  },
-  addDiseaseButton: {
-    backgroundColor: "#B0A8F0",
     padding: 10,
     borderRadius: 5,
     marginBottom: 10,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#468585",
-  },
-  addDiseaseButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  addTaskButton: {
-    backgroundColor: "#B0E0E6",
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 20,
     alignItems: "center",
   },
   addTaskButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: "bold",
   },
-  taskButton: {
-    padding: 5,
+  addDiseaseButton: {
+    backgroundColor: "#468585",
+    padding: 10,
     borderRadius: 5,
+    marginBottom: 10,
     alignItems: "center",
   },
-  deleteButton: {
-    backgroundColor: "#FF4444",
-  },
-  taskButtonText: {
+  addDiseaseButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
   },
   diseaseButtons: {
     flexDirection: "row",
-    marginTop: 5,
+    justifyContent: "flex-end",
+  },
+  squareButton: {
+    backgroundColor: "#1A5E5E",
+    padding: 5,
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  squareButtonText: {
+    color: "#FFFFFF",
   },
 });

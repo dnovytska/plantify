@@ -151,9 +151,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 20,
     marginTop: 20,
+    marginBottom: 120,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#468585',
   },
   addButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });

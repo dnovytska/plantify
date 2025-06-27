@@ -24,6 +24,7 @@ import TaskScreen from './src/screens/TaskScreen';
 import CreateDiseaseScreen from './src/screens/CreateDiseaseScreen';
 import AboutScreen from './src/screens/AboutScreen';
 import DiseaseScreen from './src/screens/DiseaseScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -86,6 +87,7 @@ function AppNavigator() {
         <AppStack.Screen name="CreateDiseaseScreen" component={CreateDiseaseScreen} />
         <AppStack.Screen name="DiseaseScreen" component={DiseaseScreen} />
         <AppStack.Screen name="About" component={AboutScreen} />
+        <AppStack.Screen name="Notifications" component={NotificationsScreen} />
       </AppStack.Navigator>
       <BottomBar /> {/* Não precisa passar a prop navigation aqui */}
     </>

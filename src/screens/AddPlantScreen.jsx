@@ -267,30 +267,8 @@ export default function AddPlantScreen() {
         const plantAccId = plantAccResult.lastInsertRowId;
         console.log('Planta associada:', { idplants_acc: plantAccId, iduser: user.iduser, idplant: newPlantId });
 
-        // Criar tarefa "Regar"
-        const notificationTypeResult = await db.getFirstAsync(
-          'SELECT idnotification_type FROM notification_types WHERE notification_type = ?',
-          ['Regar']
-        );
-        const notificationTypeId = notificationTypeResult ? notificationTypeResult.idnotification_type : 1;
+        
 
-        const dueDate = new Date();
-        const notificationResult = await db.runAsync(
-          'INSERT INTO notifications (message, due_date, is_read, id_notification_type, idplants_acc) VALUES (?, ?, ?, ?, ?)',
-          ['Regar', dueDate.toISOString(), 0, notificationTypeId, plantAccId]
-        );
-        const notificationId = notificationResult.lastInsertRowId;
-        console.log('Tarefa criada:', { id: notificationId, message: 'Regar', due_date: dueDate.toISOString() });
-
-        // Agendar notificação
-        const notificationIdentifier = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Tarefa: Regar',
-            body: `Hora de regar a planta ${plantName}!`,
-          },
-          trigger: { date: dueDate },
-        });
-        console.log('Notificação agendada:', { identifier: notificationIdentifier });
       });
 
       console.log('Planta salva com sucesso, navegando para YourPlants com user:', user);

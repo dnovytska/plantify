@@ -6,52 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Notifications from 'expo-notifications';
 import { openDatabase, initializeDatabase } from '../DB/db';
 import BottomBar from '../components/BottomBar';
-import Constants from 'expo-constants';
 
-const scheduleNotification = async (taskId, message, dueDate, notificationType) => {
-  try {
-    const permission = await Notifications.getPermissionsAsync();
-    console.log('Status das permissões:', permission);
-    if (!permission.granted) {
-      const request = await Notifications.requestPermissionsAsync();
-      if (!request.granted) {
-        Alert.alert('Erro', 'Permissão de notificação negada.');
-        return;
-      }
-    }
-
-    const projectId = Constants.expoConfig.extra.eas.projectId;
-    const token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    console.log('Enviando ao backend:', { token, taskId, message, dueDate });
-
-    const response = await fetch('https://xxxx.ngrok.io/schedule-notification', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        pushToken: token,
-        title: 'Lembrete de Tarefa',
-        body: message,
-        dueDate: dueDate.toISOString(),
-        taskId,
-        notificationType,
-      }),
-    });
-
-    const result = await response.json();
-    console.log('Resposta do backend:', result);
-
-    if (result.status === 'Notificação agendada') {
-      console.log('Notificação agendada com sucesso:', { taskId, message, dueDate });
-    } else {
-      throw new Error('Erro do backend: ' + JSON.stringify(result));
-    }
-  } catch (error) {
-    console.error('Erro ao agendar notificação:', error);
-    Alert.alert('Erro', `Falha ao agendar notificação: ${error.message}`);
-  }
-};
 export default function CreateTaskScreen() {
   const route = useRoute();
   const { plantId } = route.params || {};
@@ -81,18 +36,21 @@ export default function CreateTaskScreen() {
         setDb(database);
 
         // Load plants
-        const plantData = await database.getAllAsync(
-          'SELECT idplants_acc, name FROM plants_acc'
-        );
+        const plantData = await database.getAllAsync('SELECT idplants_acc, name FROM plants_acc');
         setPlants(plantData);
 
-        // Load notification types
+        // Load unique notification types
         const typeData = await database.getAllAsync(
-          'SELECT idnotification_type, notification_type FROM notification_types'
+          'SELECT DISTINCT idnotification_type, notification_type FROM notification_types'
         );
-        setNotificationTypes(typeData);
+        const uniqueTypes = Array.from(new Map(typeData.map(item => [item.idnotification_type, item])).values());
+        setNotificationTypes(uniqueTypes);
 
         setIsDataLoaded(true);
+
+        // Iniciar verificação a cada minuto
+        const interval = setInterval(async () => await checkPendingTasks(database), 60000); // 1 minuto
+        return () => clearInterval(interval);
       } catch (error) {
         console.error('Erro ao inicializar CreateTaskScreen:', error);
         Alert.alert('Erro', `Falha ao carregar dados: ${error.message}`);
@@ -102,42 +60,45 @@ export default function CreateTaskScreen() {
     initialize();
   }, [plantId]);
 
-  const scheduleNotification = async (taskId, message, dueDate, notificationType) => {
-    const permission = await Notifications.getPermissionsAsync();
-    if (!permission.granted) {
-      const request = await Notifications.requestPermissionsAsync();
-      if (!request.granted) {
-        Alert.alert('Erro', 'Permissão de notificação negada.');
-        return;
-      }
-    }
+  const checkPendingTasks = async (database) => {
+    try {
+      const now = new Date();
+      const tasks = await database.getAllAsync(
+        `SELECT idnotification, message, due_date, notification_type 
+         FROM notifications 
+         LEFT JOIN notification_types ON notifications.id_notification_type = notification_types.idnotification_type 
+         WHERE is_read = 0`
+      );
 
-    const trigger = new Date(dueDate);
-    if (trigger < new Date()) {
-      Alert.alert('Erro', 'A data e hora devem ser no futuro.');
-      return;
+      tasks.forEach(async (task) => {
+        const due = new Date(task.due_date);
+        if (isSameTime(now, due)) {
+          await Notifications.scheduleNotificationAsync({
+            content: { title: 'Lembrete de Tarefa', body: task.message },
+            trigger: null, // Imediato
+          });
+          console.log('Notificação disparada para:', task.message);
+        } else if (task.notification_type === 'Diária' && isSameTimeTomorrow(now, due)) {
+          await Notifications.scheduleNotificationAsync({
+            content: { title: 'Lembrete de Tarefa', body: task.message },
+            trigger: null, // Imediato para amanhã
+          });
+          console.log('Notificação diária disparada para amanhã:', task.message);
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao verificar tarefas pendentes:', error);
     }
+  };
 
-    let repeat = null;
-    if (notificationType === 'Diária') {
-      repeat = 'day';
-    } else if (notificationType === 'Semanal') {
-      repeat = 'week';
-    } else if (notificationType === 'Mensal') {
-      repeat = 'month';
-    }
+  const isSameTime = (date1, date2) => {
+    return date1.getHours() === date2.getHours() && date1.getMinutes() === date2.getMinutes();
+  };
 
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: 'Lembrete de Tarefa',
-        body: message,
-      },
-      trigger: repeat
-        ? { seconds: 60 * 60 * 24, repeats: true, channelId: repeat }
-        : { date: trigger },
-      identifier: taskId.toString(),
-    });
-    console.log('Notificação agendada:', { taskId, message, dueDate, notificationType });
+  const isSameTimeTomorrow = (now, due) => {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    return tomorrow.getHours() === due.getHours() && tomorrow.getMinutes() === due.getMinutes();
   };
 
   const handleSave = async () => {
@@ -151,13 +112,12 @@ export default function CreateTaskScreen() {
       return;
     }
 
-    if (dueDate < new Date()) {
+    if (dueDate <= new Date()) {
       Alert.alert('Erro', 'A data e hora devem ser no futuro.');
       return;
     }
 
     try {
-      // Formatar data/hora no fuso horário local
       const year = dueDate.getFullYear();
       const month = String(dueDate.getMonth() + 1).padStart(2, '0');
       const day = String(dueDate.getDate()).padStart(2, '0');
@@ -165,24 +125,16 @@ export default function CreateTaskScreen() {
       const minutes = String(dueDate.getMinutes()).padStart(2, '0');
       const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
 
-      const result = await db.runAsync(
+      await db.runAsync(
         `INSERT INTO notifications (idplants_acc, message, due_date, id_notification_type, is_read)
          VALUES (?, ?, ?, ?, ?)`,
         [selectedPlantId, message.trim(), formattedDate, notificationTypeId, 0]
       );
 
-      const newTaskId = result.lastInsertRowId;
-      const typeData = notificationTypes.find(type => type.idnotification_type === notificationTypeId);
-      const notificationType = typeData ? typeData.notification_type : 'Única';
-
-      await scheduleNotification(newTaskId, message.trim(), dueDate, notificationType);
-
       Alert.alert('Sucesso', 'Tarefa criada com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
+        { text: 'OK', onPress: () => navigation.goBack() },
       ]);
+      console.log('Tarefa salva:', { selectedPlantId, message, dueDate, notificationTypeId });
     } catch (error) {
       console.error('Erro ao criar tarefa:', error);
       Alert.alert('Erro', `Falha ao criar a tarefa: ${error.message}`);
@@ -196,14 +148,7 @@ export default function CreateTaskScreen() {
     }
     const currentDate = selectedDate || dueDate;
     setShowDatePicker(Platform.OS === 'ios');
-    const newDate = new Date(
-      currentDate.getFullYear(),
-      currentDate.getMonth(),
-      currentDate.getDate(),
-      dueDate.getHours(),
-      dueDate.getMinutes()
-    );
-    setDueDate(newDate);
+    setDueDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate(), dueDate.getHours(), dueDate.getMinutes()));
   };
 
   const onTimeChange = (event, selectedTime) => {
@@ -213,14 +158,7 @@ export default function CreateTaskScreen() {
     }
     const currentTime = selectedTime || dueDate;
     setShowTimePicker(Platform.OS === 'ios');
-    const newDate = new Date(
-      dueDate.getFullYear(),
-      dueDate.getMonth(),
-      dueDate.getDate(),
-      currentTime.getHours(),
-      currentTime.getMinutes()
-    );
-    setDueDate(newDate);
+    setDueDate(new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate(), currentTime.getHours(), currentTime.getMinutes()));
   };
 
   if (!isDataLoaded) {
@@ -243,10 +181,7 @@ export default function CreateTaskScreen() {
           <View style={styles.dropdownContainer}>
             <RNPickerSelect
               onValueChange={(value) => setSelectedPlantId(value)}
-              items={plants.map((plant) => ({
-                label: plant.name,
-                value: plant.idplants_acc,
-              }))}
+              items={plants.map((plant) => ({ label: plant.name, value: plant.idplants_acc }))}
               placeholder={{ label: 'Selecione uma planta...', value: null }}
               style={pickerSelectStyles}
               value={selectedPlantId}
@@ -271,10 +206,7 @@ export default function CreateTaskScreen() {
           <View style={styles.dropdownContainer}>
             <RNPickerSelect
               onValueChange={(value) => setNotificationTypeId(value)}
-              items={notificationTypes.map((type) => ({
-                label: type.notification_type,
-                value: type.idnotification_type,
-              }))}
+              items={notificationTypes.map((type) => ({ label: type.notification_type, value: type.idnotification_type }))}
               placeholder={{ label: 'Selecione um tipo de notificação...', value: null }}
               style={pickerSelectStyles}
               value={notificationTypeId}
@@ -283,13 +215,8 @@ export default function CreateTaskScreen() {
         )}
 
         <Text style={styles.sectionTitle}>Data de Vencimento</Text>
-        <TouchableOpacity
-          style={styles.input}
-          onPress={() => setShowDatePicker(true)}
-        >
-          <Text style={styles.dateText}>
-            {dueDate.toISOString().slice(0, 10)}
-          </Text>
+        <TouchableOpacity style={styles.input} onPress={() => setShowDatePicker(true)}>
+          <Text style={styles.dateText}>{dueDate.toISOString().slice(0, 10)}</Text>
         </TouchableOpacity>
         {showDatePicker && (
           <DateTimePicker
@@ -302,13 +229,8 @@ export default function CreateTaskScreen() {
         )}
 
         <Text style={styles.sectionTitle}>Hora de Vencimento</Text>
-        <TouchableOpacity
-          style={styles.input}
-          onPress={() => setShowTimePicker(true)}
-        >
-          <Text style={styles.dateText}>
-            {`${String(dueDate.getHours()).padStart(2, '0')}:${String(dueDate.getMinutes()).padStart(2, '0')}`}
-          </Text>
+        <TouchableOpacity style={styles.input} onPress={() => setShowTimePicker(true)}>
+          <Text style={styles.dateText}>{`${String(dueDate.getHours()).padStart(2, '0')}:${String(dueDate.getMinutes()).padStart(2, '0')}`}</Text>
         </TouchableOpacity>
         {showTimePicker && (
           <DateTimePicker
@@ -318,20 +240,7 @@ export default function CreateTaskScreen() {
             onChange={onTimeChange}
           />
         )}
-<TouchableOpacity style={styles.saveButton} onPress={async () => {
-  try {
-    await Notifications.scheduleNotificationAsync({
-      content: { title: 'Teste', body: 'Notificação de teste!' },
-      trigger: { seconds: 5 },
-    });
-    Alert.alert('Teste', 'Notificação agendada para 5 segundos.');
-  } catch (error) {
-    console.error('Erro ao agendar notificação de teste:', error);
-    Alert.alert('Erro', `Falha no teste: ${error.message}`);
-  }
-}}>
-  <Text style={styles.saveButtonText}>Testar Notificação</Text>
-</TouchableOpacity>
+
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
           <Text style={styles.saveButtonText}>Criar Tarefa</Text>
         </TouchableOpacity>
@@ -342,99 +251,22 @@ export default function CreateTaskScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  scrollContainer: {
-    padding: 20,
-    paddingBottom: 100,
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    fontSize: 18,
-    color: '#468585',
-  },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-    marginBottom: 15,
-  },
-  title: {
-    fontSize: 24,
-    color: '#468585',
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    color: '#468585',
-    marginBottom: 10,
-    alignSelf: 'flex-start',
-  },
-  input: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#468585',
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 15,
-    fontSize: 16,
-    color: '#2F2182',
-    justifyContent: 'center',
-  },
-  messageInput: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  dropdownContainer: {
-    width: '100%',
-    marginBottom: 15,
-  },
-  saveButton: {
-    backgroundColor: '#468585',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    marginTop: 10,
-    marginBottom: 20,
-    width: '100%',
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  dateText: {
-    fontSize: 16,
-    color: '#2F2182',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  scrollContainer: { padding: 20, paddingBottom: 100, alignItems: 'center' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontSize: 18, color: '#468585' },
+  errorText: { fontSize: 16, color: 'red', marginBottom: 15 },
+  title: { fontSize: 24, color: '#468585', fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
+  sectionTitle: { fontSize: 18, color: '#468585', marginBottom: 10, alignSelf: 'flex-start' },
+  input: { width: '100%', borderWidth: 1, borderColor: '#468585', borderRadius: 10, padding: 10, marginBottom: 15, fontSize: 16, color: '#2F2182', justifyContent: 'center' },
+  messageInput: { height: 100, textAlignVertical: 'top' },
+  dropdownContainer: { width: '100%', marginBottom: 15 },
+  saveButton: { backgroundColor: '#468585', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 20, marginTop: 10, marginBottom: 20, width: '100%', alignItems: 'center' },
+  saveButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  dateText: { fontSize: 16, color: '#2F2182' },
 });
 
 const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#468585',
-    borderRadius: 10,
-    padding: 10,
-    fontSize: 16,
-    color: '#2F2182',
-  },
-  inputAndroid: {
-    width: '100%',
-    borderWidth: 1,
-    borderColor: '#468585',
-    borderRadius: 10,
-    padding: 10,
-    fontSize: 16,
-    color: '#2F2182',
-  },
+  inputIOS: { width: '100%', borderWidth: 1, borderColor: '#468585', borderRadius: 10, padding: 10, fontSize: 16, color: '#2F2182' },
+  inputAndroid: { width: '100%', borderWidth: 1, borderColor: '#468585', borderRadius: 10, padding: 10, fontSize: 16, color: '#2F2182' },
 });
