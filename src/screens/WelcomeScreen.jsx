@@ -24,7 +24,7 @@ export default function WelcomeScreen({ navigation }) {
 
       {/* Frase */}
       <Text style={styles.phrase}>
-        Uma frase qualquer{'\n'}apenas porque sim
+        Cuida das tuas plantas, cultiva bem-estar.
       </Text>
 
       {/* Nome do app */}

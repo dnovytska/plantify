@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 
 const projectRoot = __dirname; // diretório onde o script está
-const outputFile = path.join(projectRoot, "project_dump.txt");
+const outputFile = path.join(projectRoot, "project_dump.docx");
 
 // extensões que você quer incluir no dump:
 const allowedExtensions = [".js", ".ts", ".tsx", ".json", ".jsx", ".css", ".scss"];
@@ -16,6 +16,10 @@ function dumpDirectory(currentPath, writeStream) {
     const stats = fs.statSync(itemPath);
 
     if (stats.isDirectory()) {
+      if (item === "node_modules") {
+        // Ignora a pasta node_modules
+        continue;
+      }
       dumpDirectory(itemPath, writeStream);
     } else if (allowedExtensions.includes(path.extname(item))) {
       try {
