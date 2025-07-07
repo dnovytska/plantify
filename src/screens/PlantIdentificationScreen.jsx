@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { AuthContext } from '../context/AuthContext';
 import BottomBar from '../components/BottomBar';
+import { PLANTNET_API_KEY } from '@env';
 import { openDatabase } from '../DB/db';
 
 export default function PlantIdentificationScreen({ navigation }) {
@@ -151,6 +152,11 @@ export default function PlantIdentificationScreen({ navigation }) {
       Alert.alert('Erro', 'Selecione ou tire uma foto primeiro.');
       return;
     }
+    if (!PLANTNET_API_KEY) {
+      console.log('Chave API do Pl@ntNet não configurada');
+      Alert.alert('Erro', 'Chave API do Pl@ntNet não configurada.');
+      return;
+    }
     setIsLoading(true);
     try {
       console.log('Enviando imagem para Pl@ntNet:', imageUri);
@@ -163,7 +169,7 @@ export default function PlantIdentificationScreen({ navigation }) {
       formData.append('organs', 'auto');
 
       const resp = await axios.post(
-        `https://my-api.plantnet.org/v2/identify/all?include-related-images=false&no-reject=false&nb-results=10&lang=en&api-key=$2b10R1qCHL6YLr2G1mriokjlu`,
+        `https://my-api.plantnet.org/v2/identify/all?include-related-images=false&no-reject=false&nb-results=10&lang=en&api-key=${PLANTNET_API_KEY}`,
         formData,
         { headers: { Accept: 'application/json', 'Content-Type': 'multipart/form-data' } }
       );
